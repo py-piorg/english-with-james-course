@@ -1,0 +1,92 @@
+# Course outline. U = unit, C = chapter, then the video numbers (index in channel list, newest = 0) in lesson order.
+U Learning How to Learn | Good habits, smart study tricks, and the right mindset before anything else.
+C Getting Started
+140 31 316 74 163 138 195 201 269 262 256
+C Study Smarter
+57 64 90 254 200 206 156 274 237 12 24 19 11
+C Memory & Focus
+2 123 55 52 59
+C Mindset & Motivation
+32 61 28 48 7
+C Building Your Vocabulary
+5 43 241 144 190 152
+
+U Grammar | The building blocks: parts of speech, tenses, modals, questions, and prepositions.
+C Parts of Speech & Sentences
+133 73 159 302 21 130 236
+C Articles & Little Words
+321 131 9 169 267 77 280 99 266
+C Verb Tenses
+260 298 30 294 6 306 230 301 315
+C Modal Verbs
+264 259 251 246 245 319 279 297 182 244 67 255
+C Questions & Connectors
+273 17 10 91 247 86 113 222 175 176 98
+C Comparisons, Adjectives & Adverbs
+106 249 232 142 263
+C Prepositions
+154 51 39 128 63
+C Fixing Common Mistakes
+197 221 202 146 238
+
+U Vocabulary & Word Choice | Pick the right word every time and grow a bigger, sharper vocabulary.
+C Confusing Words
+167 66 288 109 177 136 318 184 158 224 215 214 8 23 71 47 217 219
+C Say It Better
+42 50 54 75 93 120 27 29 79
+C Power Words
+240 243 250 194 253 116
+C Word Building: Roots, Prefixes & Suffixes
+207 196 292 305 223 268 277 281 282 168 100 89 124
+C Describing the World
+40 97 110 111 231 141 258 257
+C Story Lessons: Listen, Learn, Understand
+72 76 68 35 26
+
+U Idioms, Phrasal Verbs & Slang | The colorful everyday English that textbooks often skip.
+C Phrasal Verb Basics
+287 162 303 317 296 148 216 293 312 114 96 185 65 121 1
+C Phrasal Verbs for People & Work
+204 105 38 209 212 151
+C Body Idioms
+134 88 108 173 304 188 265 284 285 82
+C Idioms from Everyday Things
+107 103 127 132 118 170 181 271 83 300 289 275 213 320 179
+C Animal Idioms & Idiom Stories
+193 84 314 15 25 92 80
+C Slang
+69 41 235 239 242 248
+
+U Pronunciation & Listening | Sound clearer and understand fast, natural English.
+C Sounds of English
+313 311 309 252 58 102 172 174 218 307
+C Stress & Natural Speech
+0 78 135 126 129
+C Listening Skills
+286 220 125 60 3 14
+
+U Speaking & Conversation | Start, keep, and end conversations with confidence.
+C First Steps in Speaking
+323 139 278 208 87 4
+C Great Conversations
+22 56 70 37 16 147 229 119 186 81 234 178 192
+C Handling Tricky Moments
+85 18 183 143 34 166 122 36 95
+C Culture & Sensitive Topics
+308 155 117 150 145 198
+
+U Reading & Writing | Read faster, remember more, and write clearly.
+C Reading Skills
+322 225 115 13 20 137 283
+C Writing Skills
+295 261 164 291 189 112 104 310
+
+U Real-Life English | English for the places and moments of everyday life.
+C Everyday Life
+290 270 199 205 210 153 149 203 180 187 228 272 165 226 211 233 62 157
+C Work & Careers
+49 44 53 46 33
+C Life Events & Celebrations
+299 171 45 191 94 227 101
+C Law & Safety
+161 160 276

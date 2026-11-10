@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>English with James Course</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap">
+<style>
+/* Layout: one centered column; home = unit grid, unit = chapter lists, lesson = video + quiz. */
+:root{
+  --bg:#f3f6fb; --card:#ffffff; --ink:#1c2333; --muted:#5d6778; --line:#dde3ee;
+  --accent:#2f5bea; --accent-ink:#ffffff; --accent-soft:#e6ecff;
+  --done:#1f9d63; --done-soft:#dcf5e8; --warn:#c2410c; --warn-soft:#ffedd5; --bad:#d23b3b; --bad-soft:#fde4e4;
+  --star:#f5b301;
+  --display:"Fredoka","Trebuchet MS",system-ui,sans-serif;
+  --body:"Nunito","Segoe UI",system-ui,sans-serif;
+  --radius:14px; --shadow:0 1px 2px rgba(28,35,51,.06),0 4px 14px rgba(28,35,51,.06);
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#111520; --card:#1a2030; --ink:#e8ecf5; --muted:#9aa4b8; --line:#2a3246;
+  --accent:#7d9bff; --accent-ink:#0d1222; --accent-soft:#232d4b;
+  --done:#3ccf8e; --done-soft:#173326; --warn:#fb923c; --warn-soft:#3a2414; --bad:#ff7b7b; --bad-soft:#3a1c1f;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 14px rgba(0,0,0,.25); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111520; --card:#1a2030; --ink:#e8ecf5; --muted:#9aa4b8; --line:#2a3246;
+  --accent:#7d9bff; --accent-ink:#0d1222; --accent-soft:#232d4b;
+  --done:#3ccf8e; --done-soft:#173326; --warn:#fb923c; --warn-soft:#3a2414; --bad:#ff7b7b; --bad-soft:#3a1c1f;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 14px rgba(0,0,0,.25); color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.55 var(--body);-webkit-font-smoothing:antialiased}
+a{color:var(--accent)}
+button{font:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:6px}
+h1,h2,h3{font-family:var(--display);font-weight:600;line-height:1.2;text-wrap:balance;margin:0}
+.wrap{max-width:980px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+/* top bar */
+header.top{position:sticky;top:0;z-index:20;background:var(--card);border-bottom:1px solid var(--line)}
+header.top .wrap{display:flex;align-items:center;gap:12px;padding-block:10px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);font-family:var(--display);font-weight:700;font-size:1.15rem}
+.brand .logo{width:34px;height:34px;border-radius:10px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-size:1rem}
+.search{flex:1 1 220px;min-width:0;position:relative}
+.search input{width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit}
+.results{position:absolute;left:0;right:0;top:calc(100% + 6px);background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);max-height:60vh;overflow:auto;z-index:30}
+.results a{display:block;padding:9px 12px;text-decoration:none;color:var(--ink);border-bottom:1px solid var(--line)}
+.results a:hover,.results a:focus{background:var(--accent-soft)}
+.results small{display:block;color:var(--muted)}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;background:var(--done-soft);color:var(--done);font-weight:800;font-size:.85rem;white-space:nowrap}
+
+main{padding-block:24px 60px}
+.crumbs{font-size:.9rem;color:var(--muted);margin-bottom:10px;display:flex;flex-wrap:wrap;gap:6px}
+.crumbs a{color:var(--muted)}
+.bar{height:10px;border-radius:999px;background:var(--line);overflow:hidden}
+.bar > i{display:block;height:100%;background:var(--done);border-radius:inherit;transition:width .4s}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:12px;border:0;background:var(--accent);color:var(--accent-ink);font-weight:800;text-decoration:none}
+.btn.ghost{background:transparent;color:var(--accent);border:2px solid var(--accent-soft)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+/* home */
+.hero{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:24px;display:grid;gap:14px}
+.hero h1{font-size:clamp(1.6rem,4vw,2.3rem)}
+.hero p{margin:0;color:var(--muted);max-width:60ch}
+.hero .stats{display:flex;gap:18px;flex-wrap:wrap;align-items:center}
+.hero .big{font-family:var(--display);font-size:1.6rem;font-weight:700}
+.units{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:16px;margin-top:22px}
+.unit{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px;text-decoration:none;color:var(--ink);display:grid;gap:10px;border:2px solid transparent;transition:border-color .15s,transform .15s}
+.unit:hover{border-color:var(--accent-soft);transform:translateY(-2px)}
+.unit .num{font-size:.78rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.unit h2{font-size:1.25rem}
+.unit p{margin:0;color:var(--muted);font-size:.93rem}
+.unit .meta{display:flex;justify-content:space-between;font-size:.85rem;color:var(--muted);font-weight:700}
+.unit.complete .num::after{content:" ✓ Complete";color:var(--done)}
+
+/* unit page */
+.unit-head{display:grid;gap:8px;margin-bottom:18px}
+.unit-head h1{font-size:clamp(1.5rem,4vw,2.1rem)}
+.unit-head p{margin:0;color:var(--muted)}
+.chapter{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:16px;overflow:hidden}
+.chapter > summary{list-style:none;cursor:pointer;padding:16px 18px;display:flex;gap:12px;align-items:center}
+.chapter > summary::-webkit-details-marker{display:none}
+.chapter > summary h2{font-size:1.1rem;flex:1;min-width:0}
+.chapter > summary .ch{font-size:.78rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:2px}
+.chapter > summary .count{font-size:.85rem;font-weight:800;color:var(--muted);white-space:nowrap}
+.chapter > summary .chev{transition:transform .2s;color:var(--muted)}
+.chapter[open] > summary .chev{transform:rotate(90deg)}
+.lessons{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.lessons a{display:flex;gap:12px;align-items:center;padding:11px 18px;text-decoration:none;color:var(--ink);border-bottom:1px solid var(--line)}
+.lessons li:last-child a{border-bottom:0}
+.lessons a:hover{background:var(--accent-soft)}
+.check{flex:none;width:28px;height:28px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font-size:.8rem;font-weight:800;color:var(--muted)}
+.done .check{background:var(--done);border-color:var(--done);color:#fff}
+.lessons .t{flex:1;min-width:0}
+.lessons .t small{display:block;color:var(--muted);font-size:.82rem}
+.tag{display:inline-block;font-size:.72rem;font-weight:800;padding:2px 8px;border-radius:999px;background:var(--warn-soft);color:var(--warn);margin-left:6px;vertical-align:middle;white-space:nowrap}
+.score{font-size:.8rem;font-weight:800;color:var(--done);white-space:nowrap}
+
+/* lesson page */
+.lesson-grid{display:grid;gap:20px}
+.lesson-title{font-size:clamp(1.35rem,3.5vw,1.9rem);margin:4px 0 6px}
+.lesson-sub{color:var(--muted);font-size:.92rem;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.video{position:relative;width:100%;max-width:100%;aspect-ratio:16/9;border-radius:var(--radius);overflow:hidden;background:#000;box-shadow:var(--shadow)}
+.video iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.yt-link{font-size:.88rem;color:var(--muted)}
+.panel{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
+.panel h2{font-size:1.3rem;margin-bottom:4px}
+.panel > p{margin:0 0 14px;color:var(--muted)}
+.q{border:0;margin:0 0 18px;padding:0}
+.q legend{font-weight:800;margin-bottom:8px;padding:0}
+.opt{display:flex;align-items:center;gap:10px;padding:10px 12px;border:2px solid var(--line);border-radius:12px;margin-bottom:8px;cursor:pointer;background:var(--card)}
+.opt:hover{border-color:var(--accent-soft)}
+.opt input{accent-color:var(--accent);width:18px;height:18px;flex:none}
+.opt.right{border-color:var(--done);background:var(--done-soft)}
+.opt.wrong{border-color:var(--bad);background:var(--bad-soft)}
+.result{margin-top:4px;padding:14px 16px;border-radius:12px;font-weight:800;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.result.pass{background:var(--done-soft);color:var(--done)}
+.result.fail{background:var(--warn-soft);color:var(--warn)}
+.stars{color:var(--star);font-size:1.3rem;letter-spacing:2px}
+.nav{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.nav .btn{max-width:100%}
+.nav .btn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:32ch}
+
+footer{border-top:1px solid var(--line);color:var(--muted);font-size:.88rem}
+footer .wrap{display:flex;gap:16px;flex-wrap:wrap;align-items:center;justify-content:space-between;padding-block:18px}
+footer label{display:inline-flex;gap:8px;align-items:center;cursor:pointer}
+.linkbtn{background:none;border:0;color:var(--muted);text-decoration:underline;padding:0}
+.confirm{display:inline-flex;gap:8px;align-items:center;flex-wrap:wrap}
+.confirm .btn{padding:6px 12px;font-size:.85rem}
+.confirm .danger{background:var(--bad);color:#fff}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+@media (max-width:560px){.hero{padding:18px}.lessons a{padding:10px 14px}.chapter > summary{padding:14px}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#home"><span class="logo" aria-hidden="true">EJ</span><span>English with James</span></a>
+    <div class="search">
+      <label for="q" class="sr" style="position:absolute;left:-9999px">Search lessons</label>
+      <input id="q" type="search" placeholder="Search 324 lessons…" autocomplete="off">
+      <div class="results" id="results" hidden></div>
+    </div>
+    <span class="pill" id="pill">0 / 324 done</span>
+  </div>
+</header>
+<main class="wrap" id="app"></main>
+<footer>
+  <div class="wrap">
+    <span>Videos by <a href="https://www.youtube.com/channel/UCwA7Aepp7nRUJNa8roQ-6Bw" target="_blank" rel="noopener">ENGLISH with James · engVid</a>. Progress is saved in this browser.</span>
+    <span style="display:flex;gap:16px;flex-wrap:wrap;align-items:center">
+      <label><input type="checkbox" id="hideGrown"> Hide grown-up topics</label>
+      <span id="resetArea"><button class="linkbtn" id="resetBtn">Reset progress</button></span>
+    </span>
+  </div>
+</footer>
+<script src="course-data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
