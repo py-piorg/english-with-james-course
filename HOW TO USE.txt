@@ -5,7 +5,9 @@ organized into 8 units and 38 chapters, with a 3-question quiz for every lesson.
 
 HOW TO OPEN IT
 --------------
-On this computer: double-click "Start Course.bat". It opens the course in your
+Online (any device): https://py-piorg.github.io/english-with-james-course/
+
+On this computer, offline from GitHub: double-click "Start Course.bat". It opens the course in your
 web browser at http://localhost:8765. Keep the black window open while studying
 and close it when you're done.
 
