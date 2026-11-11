@@ -183,17 +183,70 @@
     return h + '</ol>';
   }
 
+  // ---------- video player ----------
+  // Shows a clean preview first. The YouTube player only loads after Play,
+  // and when the video ends it is swapped for our own card (no suggested videos).
+  var ytLoading = null;
+  function loadYT() {
+    if (window.YT && window.YT.Player) return Promise.resolve();
+    if (ytLoading) return ytLoading;
+    ytLoading = new Promise(function (resolve, reject) {
+      var prev = window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady = function () { if (prev) prev(); resolve(); };
+      var s = document.createElement("script");
+      s.src = "https://www.youtube.com/iframe_api";
+      s.onerror = function () { ytLoading = null; reject(new Error("blocked")); };
+      document.head.appendChild(s);
+      setTimeout(function () { if (!(window.YT && window.YT.Player)) reject(new Error("timeout")); }, 8000);
+    });
+    return ytLoading;
+  }
+  function showPoster(box, l) {
+    box.innerHTML = '<button class="poster" type="button" aria-label="Play video: ' + esc(l.title) + '">' +
+      '<img src="https://i.ytimg.com/vi/' + l.id + '/hqdefault.jpg" alt="" loading="eager">' +
+      '<span class="play" aria-hidden="true"><svg viewBox="0 0 24 24" width="34" height="34"><path d="M8 5v14l11-7z" fill="currentColor"/></svg></span>' +
+      '<span class="ptitle">' + (l.len ? "Play · " + dur(l.len) : "Play video") + '</span></button>';
+    box.querySelector(".poster").addEventListener("click", function () { playVideo(box, l); });
+  }
+  function plainEmbed(box, l) {
+    box.innerHTML = '<iframe src="https://www.youtube-nocookie.com/embed/' + l.id + '?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3&playsinline=1" title="' + esc(l.title) + '" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>';
+  }
+  function playVideo(box, l) {
+    box.innerHTML = '<div class="loading">Loading video…</div><div id="ytp-' + l.id + '"></div>';
+    loadYT().then(function () {
+      if (!document.body.contains(box)) return;
+      new window.YT.Player("ytp-" + l.id, {
+        host: "https://www.youtube-nocookie.com",
+        videoId: l.id,
+        playerVars: { autoplay: 1, rel: 0, modestbranding: 1, iv_load_policy: 3, playsinline: 1, fs: 1 },
+        events: {
+          onReady: function () { var ld = box.querySelector(".loading"); if (ld) ld.remove(); },
+          onStateChange: function (e) {
+            if (e.data === window.YT.PlayerState.ENDED && document.body.contains(box)) { try { e.target.destroy(); } catch (x) {} endCard(box, l); }
+          }
+        }
+      });
+    }, function () { if (document.body.contains(box)) plainEmbed(box, l); });
+  }
+  function endCard(box, l) {
+    var done = isDone(l);
+    box.innerHTML = '<div class="endcard"><img src="https://i.ytimg.com/vi/' + l.id + '/hqdefault.jpg" alt=""><div class="endinner">' +
+      '<h2>' + (done ? "Video finished!" : "Video finished! Ready for the quiz?") + '</h2>' +
+      '<div class="actions"><button class="btn" type="button" id="toQuiz">' + (done ? "Go to the quiz" : "Take the quiz ↓") + '</button><button class="btn ghost light" type="button" id="again">Watch again</button></div></div></div>';
+    document.getElementById("toQuiz").addEventListener("click", function () { var q = document.getElementById("quiz"); if (q) { q.scrollIntoView({ behavior: "smooth", block: "start" }); var f = q.querySelector("input"); if (f) setTimeout(function () { f.focus({ preventScroll: true }); }, 400); } });
+    document.getElementById("again").addEventListener("click", function () { playVideo(box, l); });
+  }
+
   function lessonView(id) {
     var l = byId[id]; if (!l) return home();
     state.last = id; save();
     var idx = all.indexOf(l), prev = all[idx - 1] || null, next = all[idx + 1] || null;
     var u = l.unit, c = l.chapter, dn = isDone(l);
-    var src = "https://www.youtube-nocookie.com/embed/" + l.id + "?rel=0&modestbranding=1";
-    var h = '<nav class="crumbs"><a href="#home">All units</a><span>›</span><a href="#unit-' + u.num + '">Unit ' + u.num + ': ' + esc(u.title) + '</a><span>›</span><span>Chapter ' + c.num + ': ' + esc(c.title) + '</span></nav>' +
+    var h ='<nav class="crumbs"><a href="#home">All units</a><span>›</span><a href="#unit-' + u.num + '">Unit ' + u.num + ': ' + esc(u.title) + '</a><span>›</span><span>Chapter ' + c.num + ': ' + esc(c.title) + '</span></nav>' +
       '<div class="lesson-grid"><div><h1 class="lesson-title">' + esc(l.title) + '</h1>' +
       '<div class="lesson-sub"><span>Lesson ' + l.num + ' of ' + c.lessons.length + ' in this chapter</span>' + (l.len ? '<span>· ' + dur(l.len) + '</span>' : "") +
       (dn ? '<span class="pill">✓ Completed · ' + state.done[l.id] + '/3</span>' : "") + '</div></div>' +
-      '<div class="video"><iframe src="' + src + '" title="' + esc(l.title) + '" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>' +
+      '<div class="video" id="videoBox"></div>' +
       '<div class="yt-link">Video not playing? <a href="https://www.youtube.com/watch?v=' + l.id + '" target="_blank" rel="noopener">Watch it on YouTube</a>' +
       (location.protocol === "file:" ? ' — or open the course with <b>Start Course.bat</b> so videos can play here.' : "") + '</div>' +
       '<form class="panel" id="quiz"><h2>Lesson quiz</h2><p>Answer all 3 questions, then check. Get ' + PASS + ' or more right to complete the lesson.</p>' +
@@ -204,6 +257,7 @@
       '<details class="chapter"><summary><span style="flex:1;min-width:0"><span class="ch">In this chapter</span><h2>' + esc(c.title) + '</h2></span><span class="count">' + countDone(c.lessons) + '/' + c.lessons.length + '</span><span class="chev" aria-hidden="true">▶</span></summary>' + lessonList(c.lessons, l) + '</details></div>';
     app.innerHTML = h;
     document.title = short(l.title);
+    showPoster(document.getElementById("videoBox"), l);
 
     var form = document.getElementById("quiz"), res = document.getElementById("result");
     form.addEventListener("submit", function (e) {

@@ -105,6 +105,19 @@ main{padding-block:24px 60px}
 .lesson-sub{color:var(--muted);font-size:.92rem;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .video{position:relative;width:100%;max-width:100%;aspect-ratio:16/9;border-radius:var(--radius);overflow:hidden;background:#000;box-shadow:var(--shadow)}
 .video iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.poster{position:absolute;inset:0;width:100%;height:100%;padding:0;border:0;background:#000;cursor:pointer;display:block}
+.poster img,.endcard img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.poster::after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.55),rgba(0,0,0,.05) 55%)}
+.poster .play{position:absolute;z-index:1;left:50%;top:50%;width:78px;height:78px;margin:-39px 0 0 -39px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;box-shadow:0 6px 24px rgba(0,0,0,.35);transition:transform .15s}
+.poster .play svg{margin-left:4px}
+.poster:hover .play,.poster:focus-visible .play{transform:scale(1.08)}
+.poster .ptitle{position:absolute;z-index:1;left:16px;bottom:14px;color:#fff;font-weight:800;font-size:.95rem;text-shadow:0 1px 3px rgba(0,0,0,.6)}
+.loading{position:absolute;inset:0;display:grid;place-items:center;color:#cfd6e4;font-weight:700}
+.endcard{position:absolute;inset:0;background:#0b0f19}
+.endcard img{opacity:.25;filter:blur(2px)}
+.endinner{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;gap:14px;padding:16px;text-align:center;color:#fff}
+.endinner h2{font-size:clamp(1.1rem,3vw,1.6rem)}
+.btn.ghost.light{color:#fff;border-color:rgba(255,255,255,.5)}
 .yt-link{font-size:.88rem;color:var(--muted)}
 .panel{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
 .panel h2{font-size:1.3rem;margin-bottom:4px}
