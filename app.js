@@ -19,7 +19,16 @@
     return true;
   }
   try { load(JSON.parse(localStorage.getItem(KEY) || "null")); } catch (e) {}
-  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+    if (window.EWJAccount) window.EWJAccount.push(state);
+  }
+  // hooks for account.js (cloud sync)
+  window.EWJApp = {
+    getState: function () { return state; },
+    replace: function (obj) { var th = state.theme; load(obj || {}); state.theme = th; try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} route(); },
+    rerender: function () { route(); }
+  };
 
   function today() { var d = new Date(); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); }
   function markStudied() { var t = today(); if (state.days.indexOf(t) < 0) { state.days.push(t); if (state.days.length > 400) state.days.shift(); } }
@@ -269,6 +278,7 @@
     if (h.indexOf("lesson-") === 0) lessonView(h.slice(7));
     else if (h.indexOf("unit-") === 0) unitView(parseInt(h.slice(5), 10));
     else if (h.indexOf("test-") === 0) testView(parseInt(h.slice(5), 10));
+    else if (h === "account" && window.EWJAccount) { window.EWJAccount.render(app); document.title = "Your account"; }
     else home();
     window.scrollTo(0, 0);
     updatePill();
@@ -347,5 +357,5 @@
   }
   resetButton();
 
-  route();
+  if (window.EWJAccount) window.EWJAccount.init(); else route();
 })();
