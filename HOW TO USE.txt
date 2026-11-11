@@ -1,40 +1,43 @@
 ENGLISH WITH JAMES COURSE
 =========================
-324 video lessons from the "ENGLISH with James · engVid" YouTube channel,
-organized into 8 units and 38 chapters, with a 3-question quiz for every lesson.
+316 video lessons from the "ENGLISH with James · engVid" YouTube channel,
+organized into 8 units and 38 chapters, with a 3-question quiz for every lesson
+and a 10-question test for every unit.
 
 HOW TO OPEN IT
 --------------
 Online (any device): https://py-piorg.github.io/english-with-james-course/
 
-On this computer, offline from GitHub: double-click "Start Course.bat". It opens the course in your
-web browser at http://localhost:8765. Keep the black window open while studying
-and close it when you're done.
-
-(YouTube doesn't let videos play when index.html is opened by double-clicking,
-so use Start Course.bat. If a video still won't play, every lesson has a
-"Watch it on YouTube" link under the video.)
-
-ON ANOTHER DEVICE (phone, tablet, her own laptop)
--------------------------------------------------
-Put the course online for free, then open the link on any device:
-  1. Go to https://app.netlify.com/drop
-  2. Drag this whole "english-with-james-course" folder onto the page.
-  3. Open the link it gives you (you can bookmark it).
-GitHub Pages works too.
+On this computer without internet hosting: double-click "Start Course.bat". It
+opens the course at http://localhost:8765. Keep the black window open while
+studying. (YouTube doesn't let videos play when index.html is opened by
+double-clicking. Every lesson also has a "Watch it on YouTube" link.)
 
 HOW PROGRESS WORKS
 ------------------
-- Watch the video, answer the 3 quiz questions, and press "Check answers".
-- Getting 2 or 3 right marks the lesson complete (green check). Retry any time.
-- Progress is saved in the browser she uses, so she should stick to the same
-  browser and device. "Reset progress" is at the bottom of every page.
-- "Hide grown-up topics" (bottom of the page) hides 8 lessons about drinking,
-  rude slang, pregnancy, and dating/gender words.
+- Lessons: watch the video, answer the 3 quiz questions, press "Check answers".
+  2 or 3 right marks the lesson complete (green check). Retry any time.
+- Wrong answers show the right answer underneath.
+- Unit tests: at the bottom of each unit page. 10 questions mixed from that
+  unit's lessons, a new mix every try. 8 right passes. Missed questions link
+  back to the lesson they came from.
+- The home page shows overall progress, unit tests passed, and how many days
+  in a row she has studied.
+- Progress is saved in the browser she uses. To move it to another device, use
+  "Move or back up progress" at the bottom of any page: copy the code on one
+  device and paste it under "Restore" on the other.
+- "Reset progress" is at the bottom of every page.
+- The round button at the top right switches between auto, light, and dark.
+- Press / on a keyboard to jump to search; Enter opens the first result.
+
+LEFT OUT ON PURPOSE
+-------------------
+8 channel videos are not in the course (drinking, rude slang, pregnancy, and
+sex/gender vocabulary). They are listed on the "X" line in data/outline.txt.
 
 CHANGING THE COURSE
 -------------------
-data/outline.txt     units, chapters, and the order of lessons
+data/outline.txt     units, chapters, lesson order, and left-out videos
 data/quiz1-5.txt     the quiz questions (question | right answer | wrong | wrong)
-Rebuild after editing:
+Rebuild after editing, then commit and push to update the website:
   node tools/build.js data/videos.json data course-data.js

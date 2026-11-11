@@ -130,8 +130,33 @@ footer label{display:inline-flex;gap:8px;align-items:center;cursor:pointer}
 .confirm{display:inline-flex;gap:8px;align-items:center;flex-wrap:wrap}
 .confirm .btn{padding:6px 12px;font-size:.85rem}
 .confirm .danger{background:var(--bad);color:#fff}
-@media (prefers-reduced-motion:reduce){*{transition:none!important}}
-@media (max-width:560px){.hero{padding:18px}.lessons a{padding:10px 14px}.chapter > summary{padding:14px}}
+.sub{color:var(--muted);font-weight:700;font-size:.88rem}
+.iconbtn{width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:1.1rem;line-height:1}
+.results .none{display:block;padding:9px 12px;color:var(--muted)}
+.streak{display:inline-flex;align-items:baseline;gap:6px;padding:8px 14px;border-radius:12px;background:var(--accent-soft);color:var(--accent);font-weight:800}
+.streak b{font-family:var(--display);font-size:1.4rem}
+.testbadge{font-size:.8rem;font-weight:800;color:var(--muted)}
+.testbadge.passed{color:var(--done)}
+.test-card{display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:20px;border-radius:var(--radius);background:var(--accent-soft);border:2px dashed var(--accent);margin-bottom:16px}
+.test-card.passed{background:var(--done-soft);border-color:var(--done)}
+.test-card h2{font-size:1.25rem;margin:2px 0 4px}
+.test-card p{margin:0;color:var(--muted)}
+.ch{font-size:.78rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);display:block}
+.actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.explain{margin-top:2px;font-size:.9rem;font-weight:700}
+.explain.ok{color:var(--done)}
+.explain.no{color:var(--bad)}
+.explain a{margin-left:6px}
+.result .big{font-family:var(--display);font-size:1.6rem}
+.celebrate{margin-top:10px;padding:12px 16px;border-radius:12px;background:var(--accent-soft);color:var(--accent);font-weight:800}
+.lessons li.current a{background:var(--accent-soft)}
+.tools{margin-bottom:24px;display:grid;gap:10px}
+.tools h2{font-size:1.2rem}
+.tools p{margin:0;color:var(--muted)}
+.tools textarea{width:100%;font:13px/1.4 ui-monospace,Consolas,monospace;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);word-break:break-all;resize:vertical}
+.lbl{font-weight:800;font-size:.9rem}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+@media (max-width:560px){.brand{flex:1;font-size:1rem;white-space:nowrap}.pill{order:1}.iconbtn{order:2}.search{order:3;flex-basis:100%}.hero{padding:18px}.lessons a{padding:10px 14px}.chapter > summary{padding:14px}}
 </style>
 </head>
 <body>
@@ -140,18 +165,20 @@ footer label{display:inline-flex;gap:8px;align-items:center;cursor:pointer}
     <a class="brand" href="#home"><span class="logo" aria-hidden="true">EJ</span><span>English with James</span></a>
     <div class="search">
       <label for="q" class="sr" style="position:absolute;left:-9999px">Search lessons</label>
-      <input id="q" type="search" placeholder="Search 324 lessons…" autocomplete="off">
+      <input id="q" type="search" placeholder="Search lessons…" autocomplete="off">
       <div class="results" id="results" hidden></div>
     </div>
-    <span class="pill" id="pill">0 / 324 done</span>
+    <span class="pill" id="pill">0 done</span>
+    <button class="iconbtn" id="themeBtn" type="button" aria-label="Change theme">◐</button>
   </div>
 </header>
 <main class="wrap" id="app"></main>
+<div class="wrap"><section class="panel tools" id="toolsPanel" hidden></section></div>
 <footer>
   <div class="wrap">
     <span>Videos by <a href="https://www.youtube.com/channel/UCwA7Aepp7nRUJNa8roQ-6Bw" target="_blank" rel="noopener">ENGLISH with James · engVid</a>. Progress is saved in this browser.</span>
     <span style="display:flex;gap:16px;flex-wrap:wrap;align-items:center">
-      <label><input type="checkbox" id="hideGrown"> Hide grown-up topics</label>
+      <button class="linkbtn" id="backupBtn" type="button">Move or back up progress</button>
       <span id="resetArea"><button class="linkbtn" id="resetBtn">Reset progress</button></span>
     </span>
   </div>

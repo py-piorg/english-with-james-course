@@ -1,4 +1,5 @@
 # Course outline. U = unit, C = chapter, then the video numbers (index in channel list, newest = 0) in lesson order.
+# X = videos left out of the course on purpose
 U Learning How to Learn | Good habits, smart study tricks, and the right mindset before anything else.
 C Getting Started
 140 31 316 74 163 138 195 201 269 262 256
@@ -55,7 +56,7 @@ C Idioms from Everyday Things
 C Animal Idioms & Idiom Stories
 193 84 314 15 25 92 80
 C Slang
-69 41 235 239 242 248
+69 235 248
 
 U Pronunciation & Listening | Sound clearer and understand fast, natural English.
 C Sounds of English
@@ -73,7 +74,7 @@ C Great Conversations
 C Handling Tricky Moments
 85 18 183 143 34 166 122 36 95
 C Culture & Sensitive Topics
-308 155 117 150 145 198
+308 155 117 150 145
 
 U Reading & Writing | Read faster, remember more, and write clearly.
 C Reading Skills
@@ -83,10 +84,12 @@ C Writing Skills
 
 U Real-Life English | English for the places and moments of everyday life.
 C Everyday Life
-290 270 199 205 210 153 149 203 180 187 228 272 165 226 211 233 62 157
+290 270 199 205 210 153 180 187 228 272 165 226 211 233 62 157
 C Work & Careers
 49 44 53 46 33
 C Life Events & Celebrations
-299 171 45 191 94 227 101
+299 171 191 94 227
 C Law & Safety
 161 160 276
+
+X 101 149 203 239 242 41 198 45
