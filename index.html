@@ -156,18 +156,8 @@ footer label{display:inline-flex;gap:8px;align-items:center;cursor:pointer}
 .tools p{margin:0;color:var(--muted)}
 .tools textarea{width:100%;font:13px/1.4 ui-monospace,Consolas,monospace;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);word-break:break-all;resize:vertical}
 .lbl{font-weight:800;font-size:.9rem}
-.acct{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:10px;background:var(--accent);color:var(--accent-ink);font-weight:800;text-decoration:none;white-space:nowrap;max-width:14ch;overflow:hidden;text-overflow:ellipsis}
-.dot{width:9px;height:9px;border-radius:50%;flex:none;background:var(--done);box-shadow:0 0 0 2px var(--accent-ink)}
-.dot.busy{background:var(--star)}
-.dot.bad{background:var(--bad)}
-.acct-note{background:var(--accent-soft);color:var(--ink);font-size:.9rem;font-weight:700}
-.acct-note .wrap{padding-block:8px}
-.acct-card{max-width:460px;margin:0 auto;display:grid;gap:10px}
-.acct-card p{margin:0;color:var(--muted)}
-.field{width:100%;padding:11px 12px;border:2px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit}
-.field:focus{border-color:var(--accent);outline:none}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
-@media (max-width:560px){.brand{flex:1;font-size:1rem;white-space:nowrap}.pill{order:1}.acct{order:2}.iconbtn{order:3}.brand .logo + span{display:none}.search{order:3;flex-basis:100%}.hero{padding:18px}.lessons a{padding:10px 14px}.chapter > summary{padding:14px}}
+@media (max-width:560px){.brand{flex:1;font-size:1rem;white-space:nowrap}.pill{order:1}.iconbtn{order:2}.search{order:3;flex-basis:100%}.hero{padding:18px}.lessons a{padding:10px 14px}.chapter > summary{padding:14px}}
 </style>
 </head>
 <body>
@@ -180,11 +170,9 @@ footer label{display:inline-flex;gap:8px;align-items:center;cursor:pointer}
       <div class="results" id="results" hidden></div>
     </div>
     <span class="pill" id="pill">0 done</span>
-    <a class="acct" id="acctBtn" href="#account" hidden>Sign in</a>
     <button class="iconbtn" id="themeBtn" type="button" aria-label="Change theme">◐</button>
   </div>
 </header>
-<div class="acct-note" id="acctNote" hidden><div class="wrap">Progress is only saved in this browser. <a href="#account">Sign in</a> to save it to your account.</div></div>
 <main class="wrap" id="app"></main>
 <div class="wrap"><section class="panel tools" id="toolsPanel" hidden></section></div>
 <footer>
@@ -196,9 +184,6 @@ footer label{display:inline-flex;gap:8px;align-items:center;cursor:pointer}
     </span>
   </div>
 </footer>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="config.js"></script>
-<script src="account.js"></script>
 <script src="course-data.js"></script>
 <script src="app.js"></script>
 </body>
