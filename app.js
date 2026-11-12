@@ -8,16 +8,29 @@
   var TEST_PASS = 8;     // unit test: correct answers needed
 
   // ---------- storage ----------
-  var state = { done: {}, tests: {}, days: [], last: null, theme: "auto" };
-  function load(obj) {
-    if (!obj || typeof obj !== "object") return false;
-    state.done = obj.done && typeof obj.done === "object" ? obj.done : {};
-    state.tests = obj.tests && typeof obj.tests === "object" ? obj.tests : {};
-    state.days = Array.isArray(obj.days) ? obj.days : [];
-    state.last = obj.last || null;
-    state.theme = obj.theme || state.theme || "auto";
+  // review: { "lessonId:q": rightInARow }  log: [[timeMs, type, id, score, total]]  watch: { "y-m-d": seconds }
+  var state = { done: {}, tests: {}, days: [], last: null, theme: "auto", review: {}, log: [], watch: {} };
+  function obj(o) { return o && typeof o === "object" && !Array.isArray(o) ? o : {}; }
+  function load(o) {
+    if (!o || typeof o !== "object") return false;
+    state.done = obj(o.done); state.tests = obj(o.tests);
+    state.days = Array.isArray(o.days) ? o.days : [];
+    state.last = o.last || null;
+    state.theme = o.theme || state.theme || "auto";
+    state.review = obj(o.review); state.log = Array.isArray(o.log) ? o.log : []; state.watch = obj(o.watch);
     return true;
   }
+  function logEvent(type, id, score, total) {
+    state.log.push([Date.now(), type, id, score, total]);
+    if (state.log.length > 2000) state.log.splice(0, state.log.length - 2000);
+  }
+  var REVIEW_GOAL = 2; // right answers in a row to clear a question from review
+  function noteAnswer(lessonId, qi, ok) {
+    var k = lessonId + ":" + qi;
+    if (!ok) state.review[k] = 0;
+    else if (state.review[k] != null) { state.review[k]++; if (state.review[k] >= REVIEW_GOAL) delete state.review[k]; }
+  }
+  function reviewCount() { return Object.keys(state.review).filter(function (k) { return byId[k.split(":")[0]]; }).length; }
   try { load(JSON.parse(localStorage.getItem(KEY) || "null")); } catch (e) {}
   function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
 
@@ -97,7 +110,8 @@
     return h;
   }
   // returns number right, or -1 if not all answered
-  function grade(form, items) {
+  // refOf(q, qi) -> [lessonId, questionIndex] so answers feed the review pile
+  function grade(form, items, refOf) {
     var answered = items.filter(function (q, qi) { return form.querySelector('input[name="q' + qi + '"]:checked'); }).length;
     if (answered < items.length) {
       var first = items.findIndex(function (q, qi) { return !form.querySelector('input[name="q' + qi + '"]:checked'); });
@@ -114,6 +128,7 @@
         if (inp.checked && inp.value === "0") ok = true;
       });
       if (ok) right++;
+      var ref = refOf && refOf(q, qi); if (ref) noteAnswer(ref[0], ref[1], ok);
       var ex = form.querySelector('[data-q="' + qi + '"] .explain');
       ex.hidden = false;
       ex.className = "explain " + (ok ? "ok" : "no");
@@ -132,6 +147,8 @@
       '<div class="stats"><span class="big">' + p + '%</span><span style="flex:1;min-width:160px">' + bar(p) + '<small class="sub">' + d + ' of ' + all.length + ' lessons · ' + testsDone + ' of ' + C.units.length + ' unit tests passed</small></span>' +
       '<span class="streak" title="Days in a row with a finished lesson or test"><b>' + s + '</b> day' + (s === 1 ? "" : "s") + ' in a row</span></div>' +
       (nx ? '<div><a class="btn" href="#lesson-' + nx.id + '">' + (d ? "Continue" : "Start") + ': ' + esc(short(nx.title)) + ' →</a></div>' : '<div class="result pass">Every lesson is complete. Amazing work!</div>') +
+      '<div class="quick"><a class="btn ghost" href="#review">Review mistakes <span class="count-badge" data-review-count>' + reviewCount() + '</span></a>' +
+      '<a class="btn ghost" href="#report">Progress report</a></div>' +
       '</section><div class="units">';
     C.units.forEach(function (u) {
       var ud = countDone(u.all), up = pct(ud, u.all.length), tp = testPassed(u), complete = ud === u.all.length && tp;
@@ -232,10 +249,15 @@
     var player = null, timer = null, open = null;
     var cps = checkpoints(l);
     function stop() { clearInterval(timer); timer = null; }
+    var watchTicks = 0;
     function tick() {
       if (!document.body.contains(box)) return stop();
       if (!player || !player.getCurrentTime || open) return;
       var t = player.getCurrentTime();
+      if (player.getPlayerState && player.getPlayerState() === 1) { // playing: count watch time
+        var dk = today(); state.watch[dk] = (state.watch[dk] || 0) + 0.4;
+        if (++watchTicks % 25 === 0) save();
+      }
       for (var k = 0; k < cps.length; k++) {
         if (l._asked[cps[k].i] == null && t >= cps[k].at) { ask(cps[k], k); return; }
       }
@@ -260,6 +282,7 @@
             if (x.getAttribute("data-v") === "0") x.classList.add("right"); else if (x === b) x.classList.add("wrong");
           });
           l._asked[cp.i] = ok; renderDots(l);
+          noteAnswer(l.id, cp.i, ok); logEvent("pop", l.id, ok ? 1 : 0, 1); save(); updateReviewLink();
           // fill the same answer into the quiz below (if it hasn't been checked yet)
           var inp = document.querySelector('#quiz input[name="q' + cp.i + '"][value="' + v + '"]');
           if (inp && !inp.disabled) inp.checked = true;
@@ -340,8 +363,9 @@
     var form = document.getElementById("quiz"), res = document.getElementById("result");
     form.addEventListener("submit", function (e) {
       e.preventDefault();
-      var right = grade(form, l.quiz);
+      var right = grade(form, l.quiz, function (q, qi) { return [l.id, qi]; });
       if (right < 0) { res.innerHTML = '<div class="result fail">Please answer all ' + l.quiz.length + ' questions first.</div>'; return; }
+      logEvent("lesson", l.id, right, 3); save(); updateReviewLink();
       if (right >= PASS) {
         var chapterWasDone = countDone(c.lessons) === c.lessons.length, unitWasDone = countDone(u.all) === u.all.length;
         state.done[l.id] = Math.max(state.done[l.id] || 0, right); markStudied(); save(); updatePill();
@@ -365,7 +389,7 @@
     var rand = seeded(String(Date.now()));
     // spread questions across lessons: pick one question from each of TEST_SIZE random lessons
     var lessons = shuffle(u.all, rand).slice(0, TEST_SIZE);
-    var items = lessons.map(function (l) { var q = l.quiz[Math.floor(rand() * l.quiz.length)]; return { q: q.q, a: q.a, from: l }; });
+    var items = lessons.map(function (l) { var qi = Math.floor(rand() * l.quiz.length), q = l.quiz[qi]; return { q: q.q, a: q.a, from: l, qi: qi }; });
     var h = '<nav class="crumbs"><a href="#home">All units</a><span>›</span><a href="#unit-' + u.num + '">Unit ' + u.num + ': ' + esc(u.title) + '</a><span>›</span><span>Unit test</span></nav>' +
       '<div class="lesson-grid"><div><h1 class="lesson-title">Unit ' + u.num + ' Test: ' + esc(u.title) + '</h1>' +
       '<div class="lesson-sub"><span>' + TEST_SIZE + ' questions from ' + u.all.length + ' lessons · get ' + TEST_PASS + ' right to pass</span>' +
@@ -379,8 +403,9 @@
     var form = document.getElementById("quiz"), res = document.getElementById("result");
     form.addEventListener("submit", function (e) {
       e.preventDefault();
-      var right = grade(form, items);
+      var right = grade(form, items, function (q) { return [q.from.id, q.qi]; });
       if (right < 0) { res.innerHTML = '<div class="result fail">Please answer all ' + items.length + ' questions first.</div>'; return; }
+      logEvent("test", String(u.num), right, TEST_SIZE); updateReviewLink();
       state.tests[u.num] = Math.max(state.tests[u.num] || 0, right);
       if (right >= TEST_PASS) markStudied();
       save();
@@ -394,6 +419,125 @@
     document.getElementById("retryBtn").addEventListener("click", function () { testView(n); window.scrollTo(0, 0); });
   }
 
+  // ---------- review mistakes ----------
+  function updateReviewLink() {
+    var n = reviewCount();
+    document.querySelectorAll("[data-review-count]").forEach(function (el) { el.textContent = n; });
+  }
+  function reviewView() {
+    var keys = Object.keys(state.review).filter(function (k) { return byId[k.split(":")[0]]; });
+    var h = '<nav class="crumbs"><a href="#home">All units</a><span>›</span><span>Review mistakes</span></nav>';
+    if (!keys.length) {
+      app.innerHTML = h + '<section class="panel empty"><h1 class="lesson-title">Nothing to review right now</h1>' +
+        '<p>Any question you miss in a lesson quiz, pop quiz, or unit test shows up here. Get it right ' + REVIEW_GOAL + ' times in a row and it leaves the pile.</p>' +
+        '<div class="actions"><a class="btn" href="#home">Back to lessons</a></div></section>';
+      document.title = "Review mistakes"; return;
+    }
+    var rand = seeded(String(Date.now()));
+    // questions with the fewest right answers come first
+    keys = shuffle(keys, rand).sort(function (a, b) { return state.review[a] - state.review[b]; }).slice(0, 10);
+    var items = keys.map(function (k) { var p = k.split(":"), l = byId[p[0]], qi = +p[1], q = l.quiz[qi]; return { q: q.q, a: q.a, from: l, qi: qi }; });
+    var total = keys.length === 10 ? reviewCount() : keys.length;
+    h += '<div class="lesson-grid"><div><h1 class="lesson-title">Review mistakes</h1>' +
+      '<div class="lesson-sub"><span>' + reviewCount() + ' question' + (reviewCount() === 1 ? "" : "s") + ' in your review pile · this round: ' + items.length + '</span></div></div>' +
+      '<form class="panel" id="quiz"><h2>Practice round</h2><p>Get a question right ' + REVIEW_GOAL + ' times in a row to clear it. Miss it and it stays.</p>' +
+      quizHTML(items, function () { return rand; }) +
+      '<div class="actions"><button class="btn" type="submit" id="checkBtn">Check answers</button><button class="btn ghost" type="button" id="retryBtn" hidden>Next round</button></div><div id="result" aria-live="polite"></div></form></div>';
+    app.innerHTML = h;
+    document.title = "Review mistakes";
+    var form = document.getElementById("quiz"), res = document.getElementById("result");
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var before = reviewCount();
+      var right = grade(form, items, function (q) { return [q.from.id, q.qi]; });
+      if (right < 0) { res.innerHTML = '<div class="result fail">Please answer all ' + items.length + ' questions first.</div>'; return; }
+      logEvent("review", "", right, items.length); markStudied(); save(); updateReviewLink();
+      var after = reviewCount(), cleared = before - after;
+      res.innerHTML = '<div class="result ' + (right === items.length ? "pass" : "fail") + '"><span class="big">' + right + '/' + items.length + '</span><span>' +
+        (cleared > 0 ? cleared + " question" + (cleared === 1 ? "" : "s") + " cleared! " : "") +
+        (after ? after + " left in your pile." : "Your review pile is empty. Great job!") + '</span></div>';
+      var rb = document.getElementById("retryBtn");
+      document.getElementById("checkBtn").hidden = true;
+      rb.hidden = false; rb.textContent = after ? "Next round" : "Back to lessons";
+      res.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    document.getElementById("retryBtn").addEventListener("click", function () { if (reviewCount()) { reviewView(); window.scrollTo(0, 0); } else location.hash = "#home"; });
+  }
+
+  // ---------- weekly progress report ----------
+  function dayKey(d) { return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); }
+  function mins(sec) { return Math.round((sec || 0) / 60); }
+  function reportView() {
+    var now = new Date(), DAY = 86400000;
+    var start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() - 6 * DAY; // 7 days incl. today
+    var prevStart = start - 7 * DAY;
+    function summarize(from, to) {
+      var ev = state.log.filter(function (e) { return e[0] >= from && e[0] < to; });
+      var lessonsDone = {}, scores = [], tests = 0, testsPassed = 0, pops = 0, popsRight = 0, reviews = 0;
+      ev.forEach(function (e) {
+        if (e[1] === "lesson") { scores.push(e[3] / e[4]); if (e[3] >= PASS) lessonsDone[e[2]] = 1; }
+        if (e[1] === "test") { tests++; if (e[3] >= TEST_PASS) testsPassed++; }
+        if (e[1] === "pop") { pops++; popsRight += e[3]; }
+        if (e[1] === "review") reviews++;
+      });
+      var watch = 0, active = 0;
+      for (var t = from; t < to; t += DAY) { var k = dayKey(new Date(t)); watch += state.watch[k] || 0; if (state.days.indexOf(k) >= 0 || state.watch[k] > 60) active++; }
+      return { lessons: Object.keys(lessonsDone).length, avg: scores.length ? Math.round(100 * scores.reduce(function (a, b) { return a + b; }, 0) / scores.length) : null,
+        tests: tests, testsPassed: testsPassed, pops: pops, popPct: pops ? Math.round(100 * popsRight / pops) : null, reviews: reviews, watch: watch, active: active, events: ev };
+    }
+    var wk = summarize(start, now.getTime() + 1), pv = summarize(prevStart, start);
+    function delta(a, b, unit) { if (b == null || a == null) return ""; var d = a - b; return '<small class="delta ' + (d > 0 ? "up" : d < 0 ? "down" : "") + '">' + (d > 0 ? "▲ " + d : d < 0 ? "▼ " + (-d) : "same as") + (d === 0 ? " last week" : (unit || "") + " vs last week") + '</small>'; }
+    function tile(label, val, sub) { return '<div class="tile"><span class="ch">' + label + '</span><b>' + val + '</b>' + (sub || "") + '</div>'; }
+
+    // daily chart
+    var days = [], maxMin = 1;
+    for (var i = 0; i < 7; i++) {
+      var dt = new Date(start + i * DAY), k = dayKey(dt);
+      var ls = state.log.filter(function (e) { var d = new Date(e[0]); return dayKey(d) === k && e[1] === "lesson" && e[3] >= PASS; }).length;
+      var m = mins(state.watch[k]); maxMin = Math.max(maxMin, m);
+      days.push({ label: dt.toLocaleDateString(undefined, { weekday: "short" }), m: m, ls: ls, today: i === 6 });
+    }
+    var chart = '<div class="week" role="img" aria-label="Minutes watched each day this week">' + days.map(function (d) {
+      return '<div class="wday' + (d.today ? " today" : "") + '"><span class="wval">' + (d.m ? d.m + "m" : "") + '</span><span class="wbar"><i style="height:' + Math.round(100 * d.m / maxMin) + '%"></i></span>' +
+        '<span class="wlab">' + d.label + '</span><span class="wls">' + (d.ls ? d.ls + " lesson" + (d.ls === 1 ? "" : "s") : "&nbsp;") + '</span></div>';
+    }).join("") + '</div>';
+
+    // topics that need work: current review pile grouped by chapter
+    var byCh = {};
+    Object.keys(state.review).forEach(function (k) { var l = byId[k.split(":")[0]]; if (!l) return; var key = l.unit.num + "." + l.chapter.num; (byCh[key] = byCh[key] || { c: l.chapter, n: 0 }).n++; });
+    var weak = Object.keys(byCh).map(function (k) { return byCh[k]; }).sort(function (a, b) { return b.n - a.n; }).slice(0, 5);
+
+    // recent activity
+    var recent = state.log.slice(-12).reverse().map(function (e) {
+      var when = new Date(e[0]).toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" }), what;
+      if (e[1] === "lesson") what = (e[3] >= PASS ? "Completed " : "Tried ") + '<a href="#lesson-' + e[2] + '">' + esc(short(byId[e[2]] ? byId[e[2]].title : "a lesson")) + '</a> · ' + e[3] + '/3';
+      else if (e[1] === "test") what = "Unit " + e[2] + " test · " + e[3] + "/" + e[4] + (e[3] >= TEST_PASS ? " · passed" : "");
+      else if (e[1] === "review") what = "Review round · " + e[3] + "/" + e[4];
+      else what = "Pop quiz in " + '<a href="#lesson-' + e[2] + '">' + esc(short(byId[e[2]] ? byId[e[2]].title : "a lesson")) + '</a> · ' + (e[3] ? "right" : "missed");
+      return '<li><span class="when">' + when + '</span><span>' + what + '</span></li>';
+    }).join("");
+
+    var since = state.log.length ? new Date(state.log[0][0]).toLocaleDateString() : null;
+    var h = '<nav class="crumbs"><a href="#home">All units</a><span>›</span><span>Progress report</span></nav>' +
+      '<div class="unit-head"><h1>Progress report</h1><p>The last 7 days, compared with the week before. ' + (since ? "Activity tracking started " + since + "." : "Activity will show up here as lessons are completed.") + '</p></div>' +
+      '<div class="tiles">' +
+      tile("Lessons completed", wk.lessons, delta(wk.lessons, pv.lessons)) +
+      tile("Minutes watched", mins(wk.watch), delta(mins(wk.watch), mins(pv.watch))) +
+      tile("Days studied", wk.active + "/7", delta(wk.active, pv.active)) +
+      tile("Quiz average", wk.avg == null ? "–" : wk.avg + "%", wk.avg != null && pv.avg != null ? delta(wk.avg, pv.avg, " pts") : "") +
+      tile("Pop quizzes right", wk.popPct == null ? "–" : wk.popPct + "%", '<small class="delta">' + wk.pops + ' answered</small>') +
+      tile("Unit tests passed", wk.testsPassed + (wk.tests ? " of " + wk.tests : ""), "") +
+      '</div>' +
+      '<section class="panel"><h2>This week, day by day</h2>' + chart + '</section>' +
+      '<div class="report-cols"><section class="panel"><h2>Topics to work on</h2>' +
+      (weak.length ? '<ul class="weak">' + weak.map(function (w) { return '<li><a href="#unit-' + w.c.unit.num + '">Unit ' + w.c.unit.num + ' · ' + esc(w.c.title) + '</a><span class="count">' + w.n + ' missed</span></li>'; }).join("") + '</ul><div class="actions"><a class="btn" href="#review">Review mistakes (' + reviewCount() + ')</a></div>'
+        : '<p>No missed questions waiting. Nice!</p>') + '</section>' +
+      '<section class="panel"><h2>Recent activity</h2>' + (recent ? '<ul class="recent">' + recent + '</ul>' : '<p>No activity yet.</p>') + '</section></div>' +
+      '<section class="panel"><h2>All time</h2><p>' + countDone(all) + ' of ' + all.length + ' lessons complete · ' + C.units.filter(testPassed).length + ' of ' + C.units.length + ' unit tests passed · ' + streak() + '-day streak · ' + reviewCount() + ' questions in the review pile</p></section>';
+    app.innerHTML = h;
+    document.title = "Progress report";
+  }
+
   // ---------- router ----------
   function route() {
     var h = location.hash.replace(/^#/, "");
@@ -401,7 +545,10 @@
     if (h.indexOf("lesson-") === 0) lessonView(h.slice(7));
     else if (h.indexOf("unit-") === 0) unitView(parseInt(h.slice(5), 10));
     else if (h.indexOf("test-") === 0) testView(parseInt(h.slice(5), 10));
+    else if (h === "review") reviewView();
+    else if (h === "report") reportView();
     else home();
+    updateReviewLink();
     window.scrollTo(0, 0);
     updatePill();
   }
@@ -441,7 +588,7 @@
 
   // ---------- backup / restore & reset ----------
   var panel = document.getElementById("toolsPanel");
-  function encode() { return btoa(unescape(encodeURIComponent(JSON.stringify({ done: state.done, tests: state.tests, days: state.days, last: state.last })))); }
+  function encode() { return btoa(unescape(encodeURIComponent(JSON.stringify({ done: state.done, tests: state.tests, days: state.days, last: state.last, review: state.review, log: state.log, watch: state.watch })))); }
   function showBackup() {
     panel.hidden = false;
     panel.innerHTML = '<h2>Move or back up progress</h2><p>Progress is saved only in this browser. To continue on another device, copy this code there and paste it under "Restore".</p>' +
@@ -473,7 +620,7 @@
     area.innerHTML = '<button class="linkbtn" id="resetBtn" type="button">Reset progress</button>';
     document.getElementById("resetBtn").addEventListener("click", function () {
       area.innerHTML = '<span class="confirm">Erase all progress? <button class="btn danger" id="yesReset" type="button">Yes, reset</button><button class="btn ghost" id="noReset" type="button">Cancel</button></span>';
-      document.getElementById("yesReset").addEventListener("click", function () { state.done = {}; state.tests = {}; state.days = []; state.last = null; save(); resetButton(); route(); });
+      document.getElementById("yesReset").addEventListener("click", function () { state.done = {}; state.tests = {}; state.days = []; state.last = null; state.review = {}; state.log = []; state.watch = {}; save(); resetButton(); route(); });
       document.getElementById("noReset").addEventListener("click", resetButton);
     });
   }

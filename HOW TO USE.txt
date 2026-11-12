@@ -26,6 +26,13 @@ HOW PROGRESS WORKS
 - Unit tests: at the bottom of each unit page. 10 questions mixed from that
   unit's lessons, a new mix every try. 8 right passes. Missed questions link
   back to the lesson they came from.
+- Review mistakes: every question she misses (lesson quiz, pop quiz, or unit
+  test) goes into a review pile. "Review mistakes" on the home page asks up to
+  10 at a time; getting one right 2 times in a row clears it.
+- Progress report (home page or bottom of any page): the last 7 days vs the
+  week before: lessons completed, minutes watched, days studied, quiz average,
+  pop-quiz accuracy, unit tests, a day-by-day chart, topics she's missing most,
+  and recent activity. It lives on her device, so check it there.
 - The home page shows overall progress, unit tests passed, and how many days
   in a row she has studied.
 - Progress is saved in the browser she uses. To move it to another device, use

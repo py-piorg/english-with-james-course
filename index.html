@@ -168,6 +168,31 @@ footer label{display:inline-flex;gap:8px;align-items:center;cursor:pointer}
 .confirm .btn{padding:6px 12px;font-size:.85rem}
 .confirm .danger{background:var(--bad);color:#fff}
 .sub{color:var(--muted);font-weight:700;font-size:.88rem}
+.quick{display:flex;gap:10px;flex-wrap:wrap}
+.count-badge{display:inline-grid;place-items:center;min-width:24px;height:22px;padding:0 7px;border-radius:999px;background:var(--accent);color:var(--accent-ink);font-size:.8rem}
+.empty{display:grid;gap:10px}.empty p{margin:0;color:var(--muted);max-width:60ch}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:16px}
+.tile{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px;display:grid;gap:2px}
+.tile b{font-family:var(--display);font-size:1.8rem;font-weight:600;font-variant-numeric:tabular-nums}
+.delta{font-size:.8rem;font-weight:700;color:var(--muted)}
+.delta.up{color:var(--done)}.delta.down{color:var(--warn)}
+.week{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;align-items:end;margin-top:10px}
+.wday{display:grid;justify-items:center;gap:4px;min-width:0}
+.wbar{width:100%;max-width:44px;height:120px;background:var(--line);border-radius:8px;display:flex;align-items:flex-end;overflow:hidden}
+.wbar i{display:block;width:100%;background:var(--accent);border-radius:8px 8px 0 0}
+.wday.today .wlab{color:var(--accent)}
+.wval{font-size:.75rem;font-weight:800;color:var(--muted);font-variant-numeric:tabular-nums;min-height:1.1em}
+.wlab{font-weight:800;font-size:.85rem}
+.wls{font-size:.7rem;color:var(--muted);text-align:center}
+.report-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-block:16px}
+.report-cols .panel,.tiles + .panel{display:grid;gap:8px;align-content:start}
+.weak,.recent{list-style:none;margin:0;padding:0;display:grid}
+.weak li,.recent li{display:flex;gap:10px;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);min-width:0}
+.weak li:last-child,.recent li:last-child{border-bottom:0}
+.weak .count{font-weight:800;color:var(--bad);white-space:nowrap}
+.recent li{justify-content:flex-start;font-size:.9rem}
+.recent .when{color:var(--muted);white-space:nowrap;min-width:9ch}
+footer a.linkbtn{color:var(--muted)}
 .iconbtn{width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:1.1rem;line-height:1}
 .results .none{display:block;padding:9px 12px;color:var(--muted)}
 .streak{display:inline-flex;align-items:baseline;gap:6px;padding:8px 14px;border-radius:12px;background:var(--accent-soft);color:var(--accent);font-weight:800}
@@ -215,12 +240,13 @@ footer label{display:inline-flex;gap:8px;align-items:center;cursor:pointer}
   <div class="wrap">
     <span>Videos by <a href="https://www.youtube.com/channel/UCwA7Aepp7nRUJNa8roQ-6Bw" target="_blank" rel="noopener">ENGLISH with James · engVid</a>. Progress is saved in this browser.</span>
     <span style="display:flex;gap:16px;flex-wrap:wrap;align-items:center">
+      <a class="linkbtn" href="#report">Progress report</a>
       <button class="linkbtn" id="backupBtn" type="button">Move or back up progress</button>
       <span id="resetArea"><button class="linkbtn" id="resetBtn">Reset progress</button></span>
     </span>
   </div>
 </footer>
-<script src="course-data.js?v=6"></script>
-<script src="app.js?v=6"></script>
+<script src="course-data.js?v=7"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>
