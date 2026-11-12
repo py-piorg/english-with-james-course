@@ -211,21 +211,88 @@
   function plainEmbed(box, l) {
     box.innerHTML = '<iframe src="https://www.youtube-nocookie.com/embed/' + l.id + '?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3&playsinline=1" title="' + esc(l.title) + '" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>';
   }
+  // In-video questions: the lesson's quiz questions pause the video at their
+  // time ("at", seconds). Answers there also fill in the quiz below the video.
+  function checkpoints(l) {
+    return l.quiz.map(function (q, i) { return { i: i, at: q.at }; })
+      .filter(function (c) { return typeof c.at === "number"; })
+      .sort(function (a, b) { return a.at - b.at; });
+  }
+  function renderDots(l) {
+    var el = document.getElementById("cpDots"); if (!el) return;
+    var asked = l._asked || {};
+    el.innerHTML = checkpoints(l).map(function (c, n) {
+      var a = asked[c.i], cls = a == null ? "" : a ? " right" : " wrong";
+      return '<span class="cpdot' + cls + '" title="Question ' + (n + 1) + ' at ' + dur(c.at) + (a == null ? "" : a ? " · correct" : " · missed") + '"></span>';
+    }).join("");
+  }
   function playVideo(box, l) {
-    box.innerHTML = '<div class="loading">Loading video…</div><div id="ytp-' + l.id + '"></div>';
+    box.innerHTML = '<div class="loading">Loading video…</div><div id="ytp-' + l.id + '"></div><div class="cp" id="cpBox" hidden></div>';
+    l._asked = l._asked || {};
+    var player = null, timer = null, open = null;
+    var cps = checkpoints(l);
+    function stop() { clearInterval(timer); timer = null; }
+    function tick() {
+      if (!document.body.contains(box)) return stop();
+      if (!player || !player.getCurrentTime || open) return;
+      var t = player.getCurrentTime();
+      for (var k = 0; k < cps.length; k++) {
+        if (l._asked[cps[k].i] == null && t >= cps[k].at) { ask(cps[k], k); return; }
+      }
+    }
+    function ask(cp, n) {
+      open = cp;
+      try { player.pauseVideo(); } catch (e) {}
+      if (document.fullscreenElement && document.fullscreenElement !== box) document.exitFullscreen();
+      var q = l.quiz[cp.i], ov = document.getElementById("cpBox");
+      var opts = shuffle(withIndex(q.a), seeded(l.id + ":" + cp.i));
+      ov.innerHTML = '<div class="cpcard" role="dialog" aria-modal="true" aria-labelledby="cpQ"><span class="ch">Pop quiz · question ' + (n + 1) + ' of ' + cps.length + ' · ' + dur(cp.at) + '</span>' +
+        '<h3 id="cpQ">' + esc(q.q) + '</h3><div class="cpopts">' +
+        opts.map(function (o) { return '<button type="button" class="cpopt" data-v="' + o.i + '">' + esc(o.x) + '</button>'; }).join("") +
+        '</div><div class="cpfoot" id="cpFoot"></div></div>';
+      ov.hidden = false;
+      var first = ov.querySelector(".cpopt"); if (first) first.focus({ preventScroll: true });
+      ov.querySelectorAll(".cpopt").forEach(function (b) {
+        b.addEventListener("click", function () {
+          var v = b.getAttribute("data-v"), ok = v === "0";
+          ov.querySelectorAll(".cpopt").forEach(function (x) {
+            x.disabled = true;
+            if (x.getAttribute("data-v") === "0") x.classList.add("right"); else if (x === b) x.classList.add("wrong");
+          });
+          l._asked[cp.i] = ok; renderDots(l);
+          // fill the same answer into the quiz below (if it hasn't been checked yet)
+          var inp = document.querySelector('#quiz input[name="q' + cp.i + '"][value="' + v + '"]');
+          if (inp && !inp.disabled) inp.checked = true;
+          document.getElementById("cpFoot").innerHTML = '<span class="cpmsg ' + (ok ? "ok" : "no") + '">' + (ok ? "Correct!" : "Not quite. The answer is: " + esc(q.a[0])) + '</span>' +
+            '<button type="button" class="btn" id="cpGo">Keep watching ▶</button>';
+          var go = document.getElementById("cpGo"); go.focus({ preventScroll: true });
+          go.addEventListener("click", function () { ov.hidden = true; ov.innerHTML = ""; open = null; try { player.playVideo(); } catch (e) {} });
+        });
+      });
+    }
     loadYT().then(function () {
       if (!document.body.contains(box)) return;
-      new window.YT.Player("ytp-" + l.id, {
+      player = new window.YT.Player("ytp-" + l.id, {
         host: "https://www.youtube-nocookie.com",
         videoId: l.id,
-        playerVars: { autoplay: 1, rel: 0, modestbranding: 1, iv_load_policy: 3, playsinline: 1, fs: 1 },
+        playerVars: { autoplay: 1, rel: 0, modestbranding: 1, iv_load_policy: 3, playsinline: 1, fs: 0 },
         events: {
-          onReady: function () { var ld = box.querySelector(".loading"); if (ld) ld.remove(); },
+          onReady: function () { var ld = box.querySelector(".loading"); if (ld) ld.remove(); timer = setInterval(tick, 400); },
           onStateChange: function (e) {
-            if (e.data === window.YT.PlayerState.ENDED && document.body.contains(box)) { try { e.target.destroy(); } catch (x) {} endCard(box, l); }
+            var S = window.YT.PlayerState;
+            if (e.data === S.PLAYING && open) { try { player.pauseVideo(); } catch (x) {} }
+            if (e.data === S.ENDED && document.body.contains(box)) {
+              // ask anything still unanswered before showing the end card
+              var left = cps.filter(function (c) { return l._asked[c.i] == null; });
+              if (left.length) { ask(left[0], cps.indexOf(left[0])); return; }
+              stop(); try { e.target.destroy(); } catch (x) {}
+              if (document.fullscreenElement) document.exitFullscreen();
+              endCard(box, l);
+            }
           }
         }
       });
+      window._ewjPlayer = player;
     }, function () { if (document.body.contains(box)) plainEmbed(box, l); });
   }
   function endCard(box, l) {
@@ -247,6 +314,8 @@
       '<div class="lesson-sub"><span>Lesson ' + l.num + ' of ' + c.lessons.length + ' in this chapter</span>' + (l.len ? '<span>· ' + dur(l.len) + '</span>' : "") +
       (dn ? '<span class="pill">✓ Completed · ' + state.done[l.id] + '/3</span>' : "") + '</div></div>' +
       '<div class="video" id="videoBox"></div>' +
+      '<div class="vbar"><span class="sub">' + checkpoints(l).length + ' pop-quiz questions appear during the video</span><span class="dots" id="cpDots"></span>' +
+      '<button class="btn ghost small" type="button" id="fsBtn">⛶ Full screen</button></div>' +
       '<div class="yt-link">Video not playing? <a href="https://www.youtube.com/watch?v=' + l.id + '" target="_blank" rel="noopener">Watch it on YouTube</a>' +
       (location.protocol === "file:" ? ' — or open the course with <b>Start Course.bat</b> so videos can play here.' : "") + '</div>' +
       '<form class="panel" id="quiz"><h2>Lesson quiz</h2><p>Answer all 3 questions, then check. Get ' + PASS + ' or more right to complete the lesson.</p>' +
@@ -257,7 +326,16 @@
       '<details class="chapter"><summary><span style="flex:1;min-width:0"><span class="ch">In this chapter</span><h2>' + esc(c.title) + '</h2></span><span class="count">' + countDone(c.lessons) + '/' + c.lessons.length + '</span><span class="chev" aria-hidden="true">▶</span></summary>' + lessonList(c.lessons, l) + '</details></div>';
     app.innerHTML = h;
     document.title = short(l.title);
-    showPoster(document.getElementById("videoBox"), l);
+    l._asked = {};
+    var vbox = document.getElementById("videoBox");
+    showPoster(vbox, l);
+    renderDots(l);
+    var fsBtn = document.getElementById("fsBtn");
+    if (!vbox.requestFullscreen) fsBtn.hidden = true;
+    fsBtn.addEventListener("click", function () {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else vbox.requestFullscreen().catch(function () { fsBtn.hidden = true; });
+    });
 
     var form = document.getElementById("quiz"), res = document.getElementById("result");
     form.addEventListener("submit", function (e) {

@@ -18,6 +18,11 @@ HOW PROGRESS WORKS
 - Lessons: watch the video, answer the 3 quiz questions, press "Check answers".
   2 or 3 right marks the lesson complete (green check). Retry any time.
 - Wrong answers show the right answer underneath.
+- Pop quizzes: after she presses Play, the lesson's 3 quiz questions pause the
+  video at the moment that topic is taught. Her answers there are filled into
+  the quiz below the video, so at the end she just presses "Check answers".
+  Dots under the video show which questions she got right. Use the
+  "Full screen" button under the video (not YouTube's) so questions still show.
 - Unit tests: at the bottom of each unit page. 10 questions mixed from that
   unit's lessons, a new mix every try. 8 right passes. Missed questions link
   back to the lesson they came from.
@@ -39,5 +44,6 @@ CHANGING THE COURSE
 -------------------
 data/outline.txt     units, chapters, lesson order, and left-out videos
 data/quiz1-5.txt     the quiz questions (question | right answer | wrong | wrong)
+data/checkpoints.json when each question pops up (seconds into the video)
 Rebuild after editing, then commit and push to update the website:
   node tools/build.js data/videos.json data course-data.js

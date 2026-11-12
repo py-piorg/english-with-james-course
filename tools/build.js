@@ -13,6 +13,7 @@ for(const f of fs.readdirSync(dataDir).filter(f=>/^quiz\d\.txt$/.test(f))){
   }
 }
 const excluded=new Set();
+const cpPath=path.join(dataDir,'checkpoints.json');const cps=fs.existsSync(cpPath)?JSON.parse(fs.readFileSync(cpPath,'utf8')):{};
 const units=[];let u,c;const used=new Set();
 for(const raw of fs.readFileSync(path.join(dataDir,'outline.txt'),'utf8').split(/\r?\n/)){
   const l=raw.trim(); if(!l||l.startsWith('#'))continue;
@@ -23,7 +24,7 @@ for(const raw of fs.readFileSync(path.join(dataDir,'outline.txt'),'utf8').split(
     const v=vids[n]; if(!v){errs.push('no video '+n);continue;}
     if(used.has(n))errs.push('dup '+n); used.add(n);
     if(!quiz[n]||quiz[n].length<3)errs.push('missing/short quiz '+n+' '+v.t);
-    c.lessons.push({id:v.id,title:v.t,len:v.s,quiz:(quiz[n]||[]).map(q=>({q:q[0],a:q.slice(1)}))});
+    c.lessons.push({id:v.id,title:v.t,len:v.s,quiz:(quiz[n]||[]).map((q,qi)=>({q:q[0],a:q.slice(1),...(cps[v.id]?{at:cps[v.id].t[qi]}:{})}))});
   }
 }
 for(const k in quiz)if(!used.has(+k))errs.push('quiz for unused '+k);
