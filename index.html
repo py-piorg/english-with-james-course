@@ -193,6 +193,68 @@ footer label{display:inline-flex;gap:8px;align-items:center;cursor:pointer}
 .recent li{justify-content:flex-start;font-size:.9rem}
 .recent .when{color:var(--muted);white-space:nowrap;min-width:9ch}
 footer a.linkbtn{color:var(--muted)}
+:root{--bronze:#b9733a;--silver:#8d99ad;--gold:#d9a400;--paper:#fffdf8;--paper-ink:#24212b;--paper-line:#c9a227}
+/* chapter test row */
+.ctest{display:flex;gap:12px;align-items:center;padding:12px 18px;border-top:2px dashed var(--line);background:var(--accent-soft)}
+.ctest.passed{background:var(--done-soft)}
+.ctest .t{flex:1;min-width:0}
+.ctest .t small{display:block;color:var(--muted);font-size:.82rem}
+.ctest .check{border-color:var(--accent);color:var(--accent)}
+.ctest.passed .check{background:var(--done);border-color:var(--done);color:#fff}
+/* medals */
+.medal{display:inline-block;width:64px;height:64px;flex:none}
+.medal svg{width:100%;height:100%;display:block}
+.medal circle{fill:var(--line)}
+.medal .ring{fill:none;stroke:rgba(255,255,255,.65);stroke-width:2;stroke-dasharray:3 3}
+.medal text{font-family:var(--display);font-weight:700;fill:#fff}
+.medal.bronze circle:first-child{fill:var(--bronze)}
+.medal.silver circle:first-child{fill:var(--silver)}
+.medal.gold circle:first-child{fill:var(--gold)}
+.medal.locked text{fill:var(--muted)}
+.medal.locked .ring{stroke:var(--muted)}
+.badge-group{display:grid;gap:12px;margin-top:16px}
+.badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px}
+.badge{display:grid;justify-items:center;text-align:center;gap:4px;padding:12px 8px;border-radius:12px}
+.badge b{font-size:.92rem;line-height:1.25}
+.badge small{color:var(--muted);font-size:.78rem}
+.badge.locked{opacity:.7}
+.certs{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-top:10px}
+.certmini{display:grid;gap:4px;padding:14px;border-radius:12px;border:2px solid var(--gold);background:var(--card);text-decoration:none;color:var(--ink)}
+.certmini .go{color:var(--accent);font-weight:800;font-size:.88rem}
+.certmini.locked{border:2px dashed var(--line);opacity:.8}
+/* toast */
+.toast{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:max(16px,env(safe-area-inset-bottom,0px));z-index:60;display:flex;gap:12px;align-items:center;max-width:min(380px,calc(100vw - 32px));padding:12px 14px;border-radius:16px;background:var(--card);color:var(--ink);box-shadow:0 10px 40px rgba(0,0,0,.25);border:2px solid var(--gold);transform:translateY(20px);opacity:0;transition:transform .3s,opacity .3s}
+.toast.show{transform:none;opacity:1}
+.toast .medal{width:52px;height:52px}
+.toast span{flex:1;min-width:0;font-size:.92rem}
+/* certificate */
+.cert-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+.cert-actions .sub{flex:1 1 260px}
+.certificate{background:var(--paper);color:var(--paper-ink);border-radius:6px;box-shadow:var(--shadow);padding:18px;aspect-ratio:1.414/1;max-width:100%;display:flex;color-scheme:light}
+.cert-inner{flex:1;border:3px double var(--paper-line);outline:1px solid var(--paper-line);outline-offset:-12px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:clamp(16px,4vw,48px);gap:clamp(4px,1vw,10px);position:relative}
+.cert-seal{width:clamp(48px,8vw,84px)}
+.cert-seal svg{width:100%;display:block}
+.cert-seal circle{fill:var(--gold)}
+.cert-seal .ring{fill:none;stroke:#fff;stroke-width:2;stroke-dasharray:3 3}
+.cert-seal text{font-family:var(--display);font-weight:700;fill:#fff}
+.cert-kicker{margin:0;font-family:var(--display);font-weight:600;letter-spacing:.18em;text-transform:uppercase;font-size:clamp(.9rem,2.4vw,1.5rem);color:#8a6d12}
+.cert-line{margin:0;font-size:clamp(.8rem,1.8vw,1.05rem);color:#5d5868}
+.cert-name{font-family:"Fredoka",var(--display);font-size:clamp(1.8rem,6vw,3.6rem);margin:0;padding:0 .4em .1em;border-bottom:2px solid var(--paper-line);color:var(--paper-ink)}
+.cert-unit{font-size:clamp(1rem,3vw,1.8rem);margin:0;color:#2f5bea}
+.cert-detail{margin:0;max-width:52ch;font-size:clamp(.75rem,1.6vw,1rem);color:#5d5868}
+.cert-foot{display:flex;gap:clamp(16px,6vw,80px);justify-content:center;flex-wrap:wrap;margin-top:clamp(8px,2vw,20px)}
+.cert-foot div{display:grid;justify-items:center;gap:2px}
+.cert-sig{font-weight:800;padding:0 1em 4px;border-bottom:1px solid #8b8595;font-size:clamp(.8rem,1.6vw,1rem)}
+.cert-foot small{color:#6f6a7a;font-size:clamp(.65rem,1.3vw,.8rem)}
+@media print{
+  @page{size:landscape;margin:10mm}
+  html,body{background:#fff!important}
+  header.top,footer,.noprint,.acct-note,#toolsPanel,.toast{display:none!important}
+  main{padding:0!important}
+  .wrap{max-width:none;padding:0!important}
+  .certificate{box-shadow:none;border-radius:0;width:100%;height:calc(100vh - 2mm);aspect-ratio:auto;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .cert-name{font-size:3.4rem}.cert-kicker{font-size:1.5rem}.cert-unit{font-size:1.8rem}.cert-line,.cert-detail{font-size:1.05rem}
+}
 .iconbtn{width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:1.1rem;line-height:1}
 .results .none{display:block;padding:9px 12px;color:var(--muted)}
 .streak{display:inline-flex;align-items:baseline;gap:6px;padding:8px 14px;border-radius:12px;background:var(--accent-soft);color:var(--accent);font-weight:800}
@@ -240,13 +302,14 @@ footer a.linkbtn{color:var(--muted)}
   <div class="wrap">
     <span>Videos by <a href="https://www.youtube.com/channel/UCwA7Aepp7nRUJNa8roQ-6Bw" target="_blank" rel="noopener">ENGLISH with James · engVid</a>. Progress is saved in this browser.</span>
     <span style="display:flex;gap:16px;flex-wrap:wrap;align-items:center">
+      <a class="linkbtn" href="#badges">Badges & certificates</a>
       <a class="linkbtn" href="#report">Progress report</a>
       <button class="linkbtn" id="backupBtn" type="button">Move or back up progress</button>
       <span id="resetArea"><button class="linkbtn" id="resetBtn">Reset progress</button></span>
     </span>
   </div>
 </footer>
-<script src="course-data.js?v=7"></script>
-<script src="app.js?v=7"></script>
+<script src="course-data.js?v=8"></script>
+<script src="app.js?v=8"></script>
 </body>
 </html>

@@ -26,6 +26,15 @@ HOW PROGRESS WORKS
 - Unit tests: at the bottom of each unit page. 10 questions mixed from that
   unit's lessons, a new mix every try. 8 right passes. Missed questions link
   back to the lesson they came from.
+- Chapter tests: at the end of each chapter on the unit page. Up to 10
+  questions from that chapter's lessons; 80% passes.
+- Badges: earned for study streaks, lesson milestones, perfect quizzes,
+  chapter tests, and each unit test. A pop-up appears when she earns one.
+- Certificates: finish every lesson in a unit AND pass its unit test. The
+  first time, it asks for her name to print on it ("Change name" fixes it).
+  "Print certificate" opens Windows printing; choose Landscape, or pick
+  "Microsoft Print to PDF" to save it as a file.
+  All of these are on the "Badges & certificates" page.
 - Review mistakes: every question she misses (lesson quiz, pop quiz, or unit
   test) goes into a review pile. "Review mistakes" on the home page asks up to
   10 at a time; getting one right 2 times in a row clears it.
