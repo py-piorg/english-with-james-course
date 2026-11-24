@@ -15,6 +15,21 @@ double-clicking. Every lesson also has a "Watch it on YouTube" link.)
 
 HOW PROGRESS WORKS
 ------------------
+FAIR-PLAY RULES (to stop shortcuts)
+- A lesson quiz unlocks only after 85% of the video has actually been played.
+  Skipping ahead doesn't count, and the fastest speed is 1.5x.
+- Pop quizzes say right or wrong, but don't show the correct answer.
+- A failed lesson quiz shows only the score. She has to watch the video again
+  before the next try. Answers are shown only after she passes.
+- Once a lesson is complete, retaking its quiz is practice only; the saved
+  score doesn't change.
+- A failed chapter or unit test shows the score and which lessons to rewatch,
+  but not the answers, and the next try opens after 15 minutes.
+- Backup codes are signed; an edited code won't restore. If the saved
+  progress is edited by hand, the Progress report shows a warning.
+- The answer key isn't readable in the page; it can't be made impossible to
+  dig out (everything runs in her browser), but it's no longer easy.
+
 - Lessons: watch the video, answer the 3 quiz questions, press "Check answers".
   2 or 3 right marks the lesson complete (green check). Retry any time.
 - Wrong answers show the right answer underneath.

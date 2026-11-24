@@ -1,7 +1,23 @@
 (function () {
   "use strict";
   var C = window.COURSE;
+  // course-data.js stores each question's options scrambled with an encoded
+  // key. Put the correct answer first here, in private memory only, then
+  // remove the global copy so the answers can't be read from the console.
+  (function () {
+    function hk(id, qi) { var h = 0; for (var i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0; return (h + qi * 7) % 3; }
+    C.units.forEach(function (u) { u.chapters.forEach(function (c) { c.lessons.forEach(function (l) { l.quiz.forEach(function (q, qi) {
+      if (q.k == null) return;
+      var pos = (q.k - hk(l.id, qi) + 3) % 3;
+      q.a = [q.a[pos]].concat(q.a.filter(function (x, i) { return i !== pos; }));
+      delete q.k;
+    }); }); }); });
+    try { delete window.COURSE; } catch (e) {} window.COURSE = undefined;
+  })();
   var app = document.getElementById("app");
+  var WATCH_REQ = 0.85;      // share of a video that must actually be played before its quiz unlocks
+  var MAX_RATE = 1.5;        // fastest allowed playback speed
+  var TEST_COOLDOWN = 15 * 60 * 1000; // wait after a failed chapter/unit test
   var KEY = "ewj-progress-v1";
   var PASS = 2;          // lesson quiz: correct answers needed out of 3
   var TEST_SIZE = 10;    // unit test: number of questions
@@ -9,7 +25,13 @@
 
   // ---------- storage ----------
   // review: { "lessonId:q": rightInARow }  log: [[timeMs, type, id, score, total]]  watch: { "y-m-d": seconds }
-  var state = { done: {}, tests: {}, days: [], last: null, theme: "auto", review: {}, log: [], watch: {}, ctests: {}, badges: {}, name: "" };
+  // seen: { lessonId: hex bitmap of video seconds actually played }  locks: { testKey: retry-after ms }
+  var state = { done: {}, tests: {}, days: [], last: null, theme: "auto", review: {}, log: [], watch: {}, ctests: {}, badges: {}, name: "", seen: {}, locks: {}, tampered: 0 };
+  // A signature over the parts that matter, so progress edited by hand (in the
+  // browser's storage or a changed backup code) is noticed and shown in the report.
+  var SALT = "ewj-7d2f-course";
+  function core(s) { return JSON.stringify([s.done, s.tests, s.ctests, s.badges, s.seen, s.locks]); }
+  function sig(s) { var str = core(s) + SALT, h1 = 0x811c9dc5, h2 = 0x1234567; for (var i = 0; i < str.length; i++) { var c = str.charCodeAt(i); h1 = Math.imul(h1 ^ c, 16777619) >>> 0; h2 = Math.imul(h2 + c, 2246822519) >>> 0; h2 = (h2 << 13 | h2 >>> 19) >>> 0; } return h1.toString(36) + h2.toString(36); }
   function obj(o) { return o && typeof o === "object" && !Array.isArray(o) ? o : {}; }
   function load(o) {
     if (!o || typeof o !== "object") return false;
@@ -19,7 +41,13 @@
     state.theme = o.theme || state.theme || "auto";
     state.review = obj(o.review); state.log = Array.isArray(o.log) ? o.log : []; state.watch = obj(o.watch);
     state.ctests = obj(o.ctests); state.badges = obj(o.badges); state.name = typeof o.name === "string" ? o.name : (state.name || "");
+    state.seen = obj(o.seen); state.locks = obj(o.locks); state.tampered = +o.tampered || 0;
     return true;
+  }
+  function checkSig(o) {
+    // progress saved before signatures existed has no _v: accept it once
+    if (!o || o._v !== 2) return true;
+    return o._sig === sig(o);
   }
   function logEvent(type, id, score, total) {
     state.log.push([Date.now(), type, id, score, total]);
@@ -32,8 +60,13 @@
     else if (state.review[k] != null) { state.review[k]++; if (state.review[k] >= REVIEW_GOAL) delete state.review[k]; }
   }
   function reviewCount() { return Object.keys(state.review).filter(function (k) { return byId[k.split(":")[0]]; }).length; }
-  try { load(JSON.parse(localStorage.getItem(KEY) || "null")); } catch (e) {}
-  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} if (typeof checkBadges === "function") checkBadges(); }
+  try {
+    var stored = JSON.parse(localStorage.getItem(KEY) || "null");
+    load(stored);
+    if (stored && !checkSig(stored) && !state.tampered) state.tampered = Date.now();
+  } catch (e) {}
+  function persist() { state._v = 2; state._sig = sig(state); try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+  function save() { persist(); if (typeof checkBadges === "function") checkBadges(); }
 
   function today() { var d = new Date(); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); }
   function markStudied() { var t = today(); if (state.days.indexOf(t) < 0) { state.days.push(t); if (state.days.length > 400) state.days.shift(); } }
@@ -98,21 +131,28 @@
 
   // ---------- quiz rendering (shared by lessons and unit tests) ----------
   // items: [{q, a:[correct, wrong, wrong], from?}] ; seedFn gives option order
+  // Option values in the page are random tokens; which token is correct is
+  // only known here (keys), so the page's HTML doesn't give the answer away.
+  var keys = {};
+  function token() { return Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6); }
+  function isRight(tok) { return keys[tok] === 0; }
   function quizHTML(items, rand) {
-    var h = "";
+    var h = ""; keys = {};
     items.forEach(function (q, qi) {
       h += '<fieldset class="q" data-q="' + qi + '"><legend>' + (qi + 1) + '. ' + esc(q.q) + '</legend>';
       shuffle(withIndex(q.a), rand(qi)).forEach(function (o, oi) {
-        var oid = "q" + qi + "o" + oi;
-        h += '<label class="opt" for="' + oid + '"><input type="radio" id="' + oid + '" name="q' + qi + '" value="' + o.i + '"><span>' + esc(o.x) + '</span></label>';
+        var oid = "q" + qi + "o" + oi, t = token(); keys[t] = o.i;
+        h += '<label class="opt" for="' + oid + '"><input type="radio" id="' + oid + '" name="q' + qi + '" value="' + t + '" data-opt="' + esc(o.x) + '"><span>' + esc(o.x) + '</span></label>';
       });
       h += '<div class="explain" hidden></div></fieldset>';
     });
     return h;
   }
-  // returns number right, or -1 if not all answered
-  // refOf(q, qi) -> [lessonId, questionIndex] so answers feed the review pile
-  function grade(form, items, refOf) {
+  // returns number right, or -1 if not all answered.
+  // refOf(q, qi) -> [lessonId, questionIndex] so answers feed the review pile.
+  // reveal=false grades silently: nothing on the page shows which answers were right.
+  function grade(form, items, refOf, reveal) {
+    if (reveal === undefined) reveal = true;
     var answered = items.filter(function (q, qi) { return form.querySelector('input[name="q' + qi + '"]:checked'); }).length;
     if (answered < items.length) {
       var first = items.findIndex(function (q, qi) { return !form.querySelector('input[name="q' + qi + '"]:checked'); });
@@ -124,18 +164,43 @@
       var ok = false;
       form.querySelectorAll('input[name="q' + qi + '"]').forEach(function (inp) {
         var lab = inp.closest(".opt"); inp.disabled = true;
-        if (inp.value === "0") lab.classList.add("right");
-        else if (inp.checked) lab.classList.add("wrong");
-        if (inp.checked && inp.value === "0") ok = true;
+        if (reveal) {
+          if (isRight(inp.value)) lab.classList.add("right");
+          else if (inp.checked) lab.classList.add("wrong");
+        }
+        if (inp.checked && isRight(inp.value)) ok = true;
       });
       if (ok) right++;
       var ref = refOf && refOf(q, qi); if (ref) noteAnswer(ref[0], ref[1], ok);
+      if (!reveal) return;
       var ex = form.querySelector('[data-q="' + qi + '"] .explain');
       ex.hidden = false;
       ex.className = "explain " + (ok ? "ok" : "no");
       ex.innerHTML = ok ? "Correct!" : 'The answer is: <b>' + esc(q.a[0]) + '</b>' + (q.from ? ' <a href="#lesson-' + q.from.id + '">Review the lesson</a>' : "");
     });
     return right;
+  }
+  // Show right/wrong marks and the correct answers (only used after a pass, or in practice)
+  function markForm(form, items) {
+    items.forEach(function (q, qi) {
+      var ok = false;
+      form.querySelectorAll('input[name="q' + qi + '"]').forEach(function (inp) {
+        var lab = inp.closest(".opt");
+        if (isRight(inp.value)) lab.classList.add("right"); else if (inp.checked) lab.classList.add("wrong");
+        if (inp.checked && isRight(inp.value)) ok = true;
+      });
+      var ex = form.querySelector('[data-q="' + qi + '"] .explain'); if (!ex) return;
+      ex.hidden = false; ex.className = "explain " + (ok ? "ok" : "no");
+      ex.innerHTML = ok ? "Correct!" : 'The answer is: <b>' + esc(q.a[0]) + '</b>' + (q.from ? ' <a href="#lesson-' + q.from.id + '">Review the lesson</a>' : "");
+    });
+  }
+  function missedLessons(form, items) {
+    var seen = {}, out = [];
+    items.forEach(function (q, qi) {
+      var pick = form.querySelector('input[name="q' + qi + '"]:checked');
+      if (pick && !isRight(pick.value) && q.from && !seen[q.from.id]) { seen[q.from.id] = 1; out.push(q.from); }
+    });
+    return out;
   }
   function stars(right, total) { return '<span class="stars" aria-label="' + right + ' of ' + total + '">' + "★".repeat(right) + "☆".repeat(total - right) + '</span>'; }
 
@@ -245,6 +310,15 @@
   }
   function plainEmbed(box, l) {
     box.innerHTML = '<iframe src="https://www.youtube-nocookie.com/embed/' + l.id + '?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3&playsinline=1" title="' + esc(l.title) + '" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>';
+    // Basic player can't report progress, so count time spent on the page with it visible.
+    var bits = seenBits(l), n = 0;
+    var iv = setInterval(function () {
+      if (!document.body.contains(box)) { if (!isDone(l)) { saveBits(l, bits); persist(); } return clearInterval(iv); }
+      if (document.hidden) return;
+      for (var s = 0; s < bits.length; s++) if (!bits[s]) { bits[s] = 1; break; }
+      if (++n % 5 === 0) updateWatchUI(l, shareOf(bits));
+      if (n % 20 === 0 && !isDone(l)) { saveBits(l, bits); persist(); }
+    }, 1000);
   }
   // In-video questions: the lesson's quiz questions pause the video at their
   // time ("at", seconds). Answers there also fill in the quiz below the video.
@@ -252,6 +326,35 @@
     return l.quiz.map(function (q, i) { return { i: i, at: q.at }; })
       .filter(function (c) { return typeof c.at === "number"; })
       .sort(function (a, b) { return a.at - b.at; });
+  }
+  // Which seconds of a video were actually played (stored as a hex bitmap).
+  // Seeking ahead doesn't mark anything, so skipping to the end doesn't count.
+  function seenBits(l) {
+    var hex = state.seen[l.id] || "", n = l.len || 0, bits = new Uint8Array(n);
+    for (var i = 0; i < hex.length; i++) { var v = parseInt(hex.charAt(i), 16) || 0; for (var b = 0; b < 4; b++) { var s = i * 4 + b; if (s < n && (v >> b) & 1) bits[s] = 1; } }
+    return bits;
+  }
+  function saveBits(l, bits) {
+    var hex = "";
+    for (var i = 0; i < bits.length; i += 4) { var v = 0; for (var b = 0; b < 4; b++) if (bits[i + b]) v |= 1 << b; hex += v.toString(16); }
+    state.seen[l.id] = hex;
+  }
+  function shareOf(bits) { if (!bits.length) return 1; var c = 0; for (var i = 0; i < bits.length; i++) c += bits[i]; return c / bits.length; }
+  function watchedShare(l) { return l.len ? shareOf(seenBits(l)) : 1; }
+  function quizUnlocked(l) { return isDone(l) || watchedShare(l) >= WATCH_REQ; }
+  function updateWatchUI(l, share) {
+    var m = document.getElementById("watchMeter"); if (!m) return;
+    if (isDone(l)) { m.innerHTML = ""; return; }
+    var p = Math.min(100, Math.floor(share * 100)), need = Math.round(WATCH_REQ * 100);
+    m.innerHTML = p >= need ? '<span class="wm ok">✓ Watched · quiz unlocked</span>' : '<span class="wm">Watched ' + p + '% · quiz unlocks at ' + need + '%</span>';
+    if (p >= need) setQuizLock(l);
+  }
+  function setQuizLock(l) {
+    var form = document.getElementById("quiz"); if (!form) return;
+    var locked = !quizUnlocked(l), note = document.getElementById("quizLock");
+    form.classList.toggle("locked", locked);
+    form.querySelectorAll("input,button[type=submit]").forEach(function (el) { if (!form.dataset.graded) el.disabled = locked; });
+    if (note) note.hidden = !locked;
   }
   function renderDots(l) {
     var el = document.getElementById("cpDots"); if (!el) return;
@@ -267,15 +370,24 @@
     var player = null, timer = null, open = null;
     var cps = checkpoints(l);
     function stop() { clearInterval(timer); timer = null; }
-    var watchTicks = 0;
+    var watchTicks = 0, bits = seenBits(l), lastT = null;
+    function flushBits() { if (!isDone(l)) { saveBits(l, bits); persist(); } }
     function tick() {
-      if (!document.body.contains(box)) return stop();
-      if (!player || !player.getCurrentTime || open) return;
+      if (!document.body.contains(box)) { flushBits(); return stop(); }
+      if (!player || !player.getCurrentTime || open) { lastT = null; return; }
       var t = player.getCurrentTime();
       if (player.getPlayerState && player.getPlayerState() === 1) { // playing: count watch time
+        var r = player.getPlaybackRate ? player.getPlaybackRate() : 1;
+        if (r > MAX_RATE) { try { player.setPlaybackRate(MAX_RATE); } catch (e) {} }
         var dk = today(); state.watch[dk] = (state.watch[dk] || 0) + 0.4;
-        if (++watchTicks % 25 === 0) save();
-      }
+        // count only normal forward playback (a jump means she skipped ahead)
+        if (lastT != null && t >= lastT && t - lastT <= 1.2) {
+          for (var s = Math.floor(lastT); s <= Math.floor(t) && s < bits.length; s++) bits[s] = 1;
+        }
+        lastT = t;
+        if (++watchTicks % 5 === 0) updateWatchUI(l, shareOf(bits));
+        if (watchTicks % 25 === 0) { flushBits(); save(); }
+      } else lastT = null;
       for (var k = 0; k < cps.length; k++) {
         if (l._asked[cps[k].i] == null && t >= cps[k].at) { ask(cps[k], k); return; }
       }
@@ -285,26 +397,25 @@
       try { player.pauseVideo(); } catch (e) {}
       if (document.fullscreenElement && document.fullscreenElement !== box) document.exitFullscreen();
       var q = l.quiz[cp.i], ov = document.getElementById("cpBox");
-      var opts = shuffle(withIndex(q.a), seeded(l.id + ":" + cp.i));
+      var opts = shuffle(withIndex(q.a), seeded(l.id + ":" + cp.i + ":" + Date.now()));
+      var popKeys = {};
       ov.innerHTML = '<div class="cpcard" role="dialog" aria-modal="true" aria-labelledby="cpQ"><span class="ch">Pop quiz · question ' + (n + 1) + ' of ' + cps.length + ' · ' + dur(cp.at) + '</span>' +
         '<h3 id="cpQ">' + esc(q.q) + '</h3><div class="cpopts">' +
-        opts.map(function (o) { return '<button type="button" class="cpopt" data-v="' + o.i + '">' + esc(o.x) + '</button>'; }).join("") +
+        opts.map(function (o) { var t = token(); popKeys[t] = o.i; return '<button type="button" class="cpopt" data-v="' + t + '">' + esc(o.x) + '</button>'; }).join("") +
         '</div><div class="cpfoot" id="cpFoot"></div></div>';
       ov.hidden = false;
       var first = ov.querySelector(".cpopt"); if (first) first.focus({ preventScroll: true });
       ov.querySelectorAll(".cpopt").forEach(function (b) {
         b.addEventListener("click", function () {
-          var v = b.getAttribute("data-v"), ok = v === "0";
-          ov.querySelectorAll(".cpopt").forEach(function (x) {
-            x.disabled = true;
-            if (x.getAttribute("data-v") === "0") x.classList.add("right"); else if (x === b) x.classList.add("wrong");
-          });
+          var idx = popKeys[b.getAttribute("data-v")], ok = idx === 0;
+          // only her own pick is marked; the correct answer is not revealed
+          ov.querySelectorAll(".cpopt").forEach(function (x) { x.disabled = true; if (x === b) x.classList.add(ok ? "right" : "wrong"); });
           l._asked[cp.i] = ok; renderDots(l);
           noteAnswer(l.id, cp.i, ok); logEvent("pop", l.id, ok ? 1 : 0, 1); save(); updateReviewLink();
           // fill the same answer into the quiz below (if it hasn't been checked yet)
-          var inp = document.querySelector('#quiz input[name="q' + cp.i + '"][value="' + v + '"]');
-          if (inp && !inp.disabled) inp.checked = true;
-          document.getElementById("cpFoot").innerHTML = '<span class="cpmsg ' + (ok ? "ok" : "no") + '">' + (ok ? "Correct!" : "Not quite. The answer is: " + esc(q.a[0])) + '</span>' +
+          var pick = q.a[idx];
+          document.querySelectorAll('#quiz input[name="q' + cp.i + '"]').forEach(function (inp) { if (!inp.disabled && inp.getAttribute("data-opt") === pick) inp.checked = true; });
+          document.getElementById("cpFoot").innerHTML = '<span class="cpmsg ' + (ok ? "ok" : "no") + '">' + (ok ? "Correct!" : "Not quite. Keep watching closely, it'll help on the quiz.") + '</span>' +
             '<button type="button" class="btn" id="cpGo">Keep watching ▶</button>';
           var go = document.getElementById("cpGo"); go.focus({ preventScroll: true });
           go.addEventListener("click", function () { ov.hidden = true; ov.innerHTML = ""; open = null; try { player.playVideo(); } catch (e) {} });
@@ -326,6 +437,7 @@
               // ask anything still unanswered before showing the end card
               var left = cps.filter(function (c) { return l._asked[c.i] == null; });
               if (left.length) { ask(left[0], cps.indexOf(left[0])); return; }
+              flushBits(); updateWatchUI(l, shareOf(bits));
               stop(); try { e.target.destroy(); } catch (x) {}
               if (document.fullscreenElement) document.exitFullscreen();
               endCard(box, l);
@@ -333,7 +445,7 @@
           }
         }
       });
-      window._ewjPlayer = player;
+      if (location.hostname === "localhost") window._ewjPlayer = player; // for local testing only
     }, function () { if (document.body.contains(box)) plainEmbed(box, l); });
   }
   function endCard(box, l) {
@@ -355,12 +467,13 @@
       '<div class="lesson-sub"><span>Lesson ' + l.num + ' of ' + c.lessons.length + ' in this chapter</span>' + (l.len ? '<span>· ' + dur(l.len) + '</span>' : "") +
       (dn ? '<span class="pill">✓ Completed · ' + state.done[l.id] + '/3</span>' : "") + '</div></div>' +
       '<div class="video" id="videoBox"></div>' +
-      '<div class="vbar"><span class="sub">' + checkpoints(l).length + ' pop-quiz questions appear during the video</span><span class="dots" id="cpDots"></span>' +
+      '<div class="vbar"><span class="sub">' + checkpoints(l).length + ' pop-quiz questions appear during the video</span><span class="dots" id="cpDots"></span><span id="watchMeter"></span>' +
       '<button class="btn ghost small" type="button" id="fsBtn">⛶ Full screen</button></div>' +
       '<div class="yt-link">Video not playing? <a href="https://www.youtube.com/watch?v=' + l.id + '" target="_blank" rel="noopener">Watch it on YouTube</a>' +
       (location.protocol === "file:" ? ' — or open the course with <b>Start Course.bat</b> so videos can play here.' : "") + '</div>' +
-      '<form class="panel" id="quiz"><h2>Lesson quiz</h2><p>Answer all 3 questions, then check. Get ' + PASS + ' or more right to complete the lesson.</p>' +
-      quizHTML(l.quiz, function (qi) { return seeded(l.id + ":" + qi); }) +
+      '<form class="panel" id="quiz"><h2>Lesson quiz</h2><p>' + (dn ? "You've completed this lesson. You can practice the quiz again; it won't change your saved score." : "Answer all 3 questions, then check. Get " + PASS + " or more right to complete the lesson.") + '</p>' +
+      '<div class="quizlock" id="quizLock" hidden><b>Watch the video to unlock the quiz.</b> It opens once you\'ve watched ' + Math.round(WATCH_REQ * 100) + '% of it. Skipped parts don\'t count.</div>' +
+      quizHTML(l.quiz, function (qi) { return seeded(l.id + ":" + qi + ":" + Date.now()); }) +
       '<div class="actions"><button class="btn" type="submit" id="checkBtn">Check answers</button><button class="btn ghost" type="button" id="retryBtn" hidden>Try again</button></div><div id="result" aria-live="polite"></div></form>' +
       '<div class="nav">' + (prev ? '<a class="btn ghost" href="#lesson-' + prev.id + '">← <span>' + esc(short(prev.title)) + '</span></a>' : "<span></span>") +
       (next ? '<a class="btn" href="#lesson-' + next.id + '"><span>Next: ' + esc(short(next.title)) + '</span> →</a>' : '<a class="btn" href="#home">Back to all units</a>') + '</div>' +
@@ -379,31 +492,70 @@
     });
 
     var form = document.getElementById("quiz"), res = document.getElementById("result");
+    updateWatchUI(l, watchedShare(l));
+    setQuizLock(l);
     form.addEventListener("submit", function (e) {
       e.preventDefault();
-      var right = grade(form, l.quiz, function (q, qi) { return [l.id, qi]; });
+      if (form.dataset.graded) return;
+      if (!quizUnlocked(l)) { setQuizLock(l); res.innerHTML = '<div class="result fail">Watch the video first. The quiz unlocks after ' + Math.round(WATCH_REQ * 100) + '% of it.</div>'; return; }
+      var wasDone = isDone(l);
+      var right = grade(form, l.quiz, wasDone ? null : function (q, qi) { return [l.id, qi]; }, false);
       if (right < 0) { res.innerHTML = '<div class="result fail">Please answer all ' + l.quiz.length + ' questions first.</div>'; return; }
-      logEvent("lesson", l.id, right, 3); save(); updateReviewLink();
-      if (right >= PASS) {
+      form.dataset.graded = "1";
+      var rb = document.getElementById("retryBtn");
+      document.getElementById("checkBtn").hidden = true;
+      if (wasDone) {
+        // practice round: answers can be shown, saved score never changes
+        logEvent("practice", l.id, right, 3); save();
+        markForm(form, l.quiz);
+        res.innerHTML = '<div class="result ' + (right >= PASS ? "pass" : "fail") + '">' + stars(right, 3) + '<span>Practice round: ' + right + ' of 3. Your saved score (' + state.done[l.id] + '/3) stays the same.</span></div>';
+        rb.hidden = false; rb.textContent = "Practice again";
+      } else if (right >= PASS) {
+        logEvent("lesson", l.id, right, 3);
         var chapterWasDone = countDone(c.lessons) === c.lessons.length, unitWasDone = countDone(u.all) === u.all.length;
-        state.done[l.id] = Math.max(state.done[l.id] || 0, right); markStudied(); save(); updatePill();
+        state.done[l.id] = right; delete state.seen[l.id]; markStudied(); save(); updatePill(); updateReviewLink();
+        markForm(form, l.quiz);
         var extra = "";
         if (!unitWasDone && countDone(u.all) === u.all.length) extra = '<div class="celebrate">You finished every lesson in Unit ' + u.num + '! Time for the <a href="#test-' + u.num + '">unit test</a>.</div>';
-        else if (!chapterWasDone && countDone(c.lessons) === c.lessons.length) extra = '<div class="celebrate">Chapter complete: ' + esc(c.title) + '!</div>';
+        else if (!chapterWasDone && countDone(c.lessons) === c.lessons.length) extra = '<div class="celebrate">Chapter complete: ' + esc(c.title) + '! Try the <a href="#ctest-' + ctKey(c) + '">chapter test</a>.</div>';
         res.innerHTML = '<div class="result pass">' + stars(right, 3) + '<span>' + (right === 3 ? "Perfect score!" : "Nice work!") + ' Lesson complete.</span>' +
           (next ? '<a class="btn" href="#lesson-' + next.id + '">Next lesson →</a>' : "") + '</div>' + extra;
+        document.getElementById("watchMeter").innerHTML = "";
       } else {
-        res.innerHTML = '<div class="result fail">' + stars(right, 3) + '<span>You got ' + right + ' of 3. Rewatch the video and try again.</span></div>';
+        // failed: no answers shown, and the video has to be watched again before another try
+        logEvent("lesson", l.id, right, 3);
+        state.seen[l.id] = ""; save(); updateReviewLink();
+        res.innerHTML = '<div class="result fail">' + stars(right, 3) + '<span>You got ' + right + ' of 3. Watch the video again to unlock another try. The pop quizzes will ask again too.</span></div>';
+        rb.hidden = false; rb.textContent = "Watch again";
       }
-      document.getElementById("checkBtn").hidden = true;
-      document.getElementById("retryBtn").hidden = false;
       res.scrollIntoView({ behavior: "smooth", block: "center" });
     });
-    document.getElementById("retryBtn").addEventListener("click", function () { lessonView(id); window.scrollTo(0, document.getElementById("quiz").offsetTop - 80); });
+    document.getElementById("retryBtn").addEventListener("click", function () {
+      lessonView(id);
+      var target = isDone(l) ? document.getElementById("quiz") : document.getElementById("videoBox");
+      window.scrollTo(0, Math.max(0, target.offsetTop - 80));
+    });
+  }
+
+  // After a failed chapter/unit test: no answers shown, a short wait, and the lessons to review.
+  function lockLeft(key) { var t = state.locks[key] || 0; return t > Date.now() ? t - Date.now() : 0; }
+  function lockedHTML(key, crumbs, title, backHref, backLabel) {
+    var m = Math.ceil(lockLeft(key) / 60000);
+    return crumbs + '<section class="panel empty"><h1 class="lesson-title">' + title + '</h1>' +
+      '<p>You can try again in about <b>' + m + ' minute' + (m === 1 ? "" : "s") + '</b>. Use the time to rewatch the lessons you missed or practice in <a href="#review">Review mistakes</a>.</p>' +
+      '<div class="actions"><a class="btn" href="' + backHref + '">' + backLabel + '</a></div></section>';
+  }
+  function failHTML(right, size, need, missed) {
+    return '<div class="result fail"><span class="big">' + right + '/' + size + '</span><span>You need ' + need + ' to pass. The answers stay hidden so the next try is fair. You can try again in ' + Math.round(TEST_COOLDOWN / 60000) + ' minutes.</span></div>' +
+      (missed.length ? '<div class="panel missed"><b>Rewatch these lessons first:</b><ul>' + missed.map(function (l) { return '<li><a href="#lesson-' + l.id + '">' + esc(l.title) + '</a></li>'; }).join("") + '</ul></div>' : "");
   }
 
   function testView(n) {
     var u = C.units[n - 1]; if (!u) return home();
+    if (lockLeft("test-" + n)) {
+      app.innerHTML = lockedHTML("test-" + n, '<nav class="crumbs"><a href="#home">All units</a><span>›</span><a href="#unit-' + u.num + '">Unit ' + u.num + '</a><span>›</span><span>Unit test</span></nav>', "Unit " + u.num + " test: try again soon", "#unit-" + u.num, "Back to Unit " + u.num);
+      document.title = "Unit " + u.num + " Test"; return;
+    }
     var rand = seeded(String(Date.now()));
     // spread questions across lessons: pick one question from each of TEST_SIZE random lessons
     var lessons = shuffle(u.all, rand).slice(0, TEST_SIZE);
@@ -412,7 +564,7 @@
       '<div class="lesson-grid"><div><h1 class="lesson-title">Unit ' + u.num + ' Test: ' + esc(u.title) + '</h1>' +
       '<div class="lesson-sub"><span>' + TEST_SIZE + ' questions from ' + u.all.length + ' lessons · get ' + TEST_PASS + ' right to pass</span>' +
       (state.tests[u.num] != null ? '<span class="pill">Best: ' + state.tests[u.num] + '/' + TEST_SIZE + '</span>' : "") + '</div></div>' +
-      '<form class="panel" id="quiz"><h2>Unit test</h2><p>Every attempt picks a new mix of questions. Missed one? You can jump back to that lesson.</p>' +
+      '<form class="panel" id="quiz"><h2>Unit test</h2><p>Every attempt picks a new mix of questions. Answers are only shown if you pass.</p>' +
       quizHTML(items, function () { return rand; }) +
       '<div class="actions"><button class="btn" type="submit" id="checkBtn">Check answers</button><button class="btn ghost" type="button" id="retryBtn" hidden>New test</button></div><div id="result" aria-live="polite"></div></form>' +
       '<div class="nav"><a class="btn ghost" href="#unit-' + u.num + '">← Back to Unit ' + u.num + '</a>' + (n < C.units.length ? '<a class="btn ghost" href="#unit-' + (n + 1) + '">Unit ' + (n + 1) + ' →</a>' : "") + '</div></div>';
@@ -421,8 +573,11 @@
     var form = document.getElementById("quiz"), res = document.getElementById("result");
     form.addEventListener("submit", function (e) {
       e.preventDefault();
-      var right = grade(form, items, function (q) { return [q.from.id, q.qi]; });
+      if (form.dataset.graded) return;
+      var right = grade(form, items, function (q) { return [q.from.id, q.qi]; }, false);
       if (right < 0) { res.innerHTML = '<div class="result fail">Please answer all ' + items.length + ' questions first.</div>'; return; }
+      form.dataset.graded = "1";
+      if (right >= TEST_PASS) markForm(form, items); else state.locks["test-" + n] = Date.now() + TEST_COOLDOWN;
       logEvent("test", String(u.num), right, TEST_SIZE); updateReviewLink();
       state.tests[u.num] = Math.max(state.tests[u.num] || 0, right);
       if (right >= TEST_PASS) markStudied();
@@ -431,9 +586,9 @@
         ? '<div class="result pass"><span class="big">' + right + '/' + TEST_SIZE + '</span><span>You passed the Unit ' + u.num + ' test!</span>' +
           (unitComplete(u) ? '<a class="btn" href="#cert-' + u.num + '">Get your certificate</a>' : '<span>Finish the rest of the lessons to earn your Unit ' + u.num + ' certificate.</span>') +
           (n < C.units.length ? '<a class="btn ghost" href="#unit-' + (n + 1) + '">On to Unit ' + (n + 1) + ' →</a>' : "") + '</div>'
-        : '<div class="result fail"><span class="big">' + right + '/' + TEST_SIZE + '</span><span>So close! You need ' + TEST_PASS + ' to pass. Review the lessons linked under the missed questions, then take a new test.</span></div>';
+        : failHTML(right, TEST_SIZE, TEST_PASS, missedLessons(form, items));
       document.getElementById("checkBtn").hidden = true;
-      document.getElementById("retryBtn").hidden = false;
+      document.getElementById("retryBtn").hidden = right < TEST_PASS;
       res.scrollIntoView({ behavior: "smooth", block: "center" });
     });
     document.getElementById("retryBtn").addEventListener("click", function () { testView(n); window.scrollTo(0, 0); });
@@ -441,6 +596,10 @@
 
   function chapterTestView(key) {
     var p = key.split("."), u = C.units[+p[0] - 1], c = u && u.chapters[+p[1] - 1]; if (!c) return home();
+    if (lockLeft("ctest-" + key)) {
+      app.innerHTML = lockedHTML("ctest-" + key, '<nav class="crumbs"><a href="#home">All units</a><span>›</span><a href="#unit-' + u.num + '">Unit ' + u.num + '</a><span>›</span><span>Chapter ' + c.num + ' test</span></nav>', "Chapter " + c.num + " test: try again soon", "#unit-" + u.num, "Back to Unit " + u.num);
+      document.title = "Chapter " + c.num + " Test"; return;
+    }
     var size = ctSize(c), need = ctPass(c), rand = seeded(String(Date.now()));
     // one question from each lesson first, then fill up to the test size
     var lessons = shuffle(c.lessons, rand), picked = {}, items = [];
@@ -459,7 +618,7 @@
       '<div class="lesson-grid"><div><h1 class="lesson-title">Chapter ' + c.num + ' Test: ' + esc(c.title) + '</h1>' +
       '<div class="lesson-sub"><span>' + size + ' questions from ' + c.lessons.length + ' lessons · get ' + need + ' right to pass</span>' +
       (best != null ? '<span class="pill">Best: ' + best + '/' + size + '</span>' : "") + '</div></div>' +
-      '<form class="panel" id="quiz"><h2>Chapter test</h2><p>Questions come from every lesson in this chapter, in a new mix each time.</p>' +
+      '<form class="panel" id="quiz"><h2>Chapter test</h2><p>Questions come from every lesson in this chapter, in a new mix each time. Answers are only shown if you pass.</p>' +
       quizHTML(items, function () { return rand; }) +
       '<div class="actions"><button class="btn" type="submit" id="checkBtn">Check answers</button><button class="btn ghost" type="button" id="retryBtn" hidden>New test</button></div><div id="result" aria-live="polite"></div></form>' +
       '<div class="nav"><a class="btn ghost" href="#unit-' + u.num + '">← Back to Unit ' + u.num + '</a></div></div>';
@@ -468,8 +627,11 @@
     var form = document.getElementById("quiz"), res = document.getElementById("result");
     form.addEventListener("submit", function (e) {
       e.preventDefault();
-      var right = grade(form, items, function (q) { return [q.from.id, q.qi]; });
+      if (form.dataset.graded) return;
+      var right = grade(form, items, function (q) { return [q.from.id, q.qi]; }, false);
       if (right < 0) { res.innerHTML = '<div class="result fail">Please answer all ' + items.length + ' questions first.</div>'; return; }
+      form.dataset.graded = "1";
+      if (right >= need) markForm(form, items); else state.locks["ctest-" + key] = Date.now() + TEST_COOLDOWN;
       logEvent("ctest", key, right, size); updateReviewLink();
       state.ctests[key] = Math.max(state.ctests[key] || 0, right);
       if (right >= need) markStudied();
@@ -478,9 +640,9 @@
       res.innerHTML = right >= need
         ? '<div class="result pass"><span class="big">' + right + '/' + size + '</span><span>You passed the Chapter ' + c.num + ' test!</span>' +
           (nextCh ? '<a class="btn" href="#unit-' + u.num + '">Next: ' + esc(nextCh.title) + ' →</a>' : '<a class="btn" href="#test-' + u.num + '">Take the Unit ' + u.num + ' test →</a>') + '</div>'
-        : '<div class="result fail"><span class="big">' + right + '/' + size + '</span><span>You need ' + need + ' to pass. Check the lessons linked under the missed questions, then try a new test.</span></div>';
+        : failHTML(right, size, need, missedLessons(form, items));
       document.getElementById("checkBtn").hidden = true;
-      document.getElementById("retryBtn").hidden = false;
+      document.getElementById("retryBtn").hidden = right < need;
       res.scrollIntoView({ behavior: "smooth", block: "center" });
     });
     document.getElementById("retryBtn").addEventListener("click", function () { chapterTestView(key); window.scrollTo(0, 0); });
@@ -512,7 +674,7 @@
     var fresh = badgeList().filter(function (b) { return b.have >= b.need && !state.badges[b.id]; });
     if (!fresh.length) return;
     fresh.forEach(function (b) { state.badges[b.id] = Date.now(); });
-    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+    persist();
     toast(fresh.sort(function (a, b) { return b.tier - a.tier; }));
   }
   var TIERS = ["bronze", "bronze", "silver", "silver", "gold", "gold"];
@@ -689,6 +851,7 @@
       else if (e[1] === "test") what = "Unit " + e[2] + " test · " + e[3] + "/" + e[4] + (e[3] >= TEST_PASS ? " · passed" : "");
       else if (e[1] === "ctest") what = "Chapter " + e[2] + " test · " + e[3] + "/" + e[4];
       else if (e[1] === "review") what = "Review round · " + e[3] + "/" + e[4];
+      else if (e[1] === "practice") what = "Practice round in " + '<a href="#lesson-' + e[2] + '">' + esc(short(byId[e[2]] ? byId[e[2]].title : "a lesson")) + '</a> · ' + e[3] + '/3';
       else what = "Pop quiz in " + '<a href="#lesson-' + e[2] + '">' + esc(short(byId[e[2]] ? byId[e[2]].title : "a lesson")) + '</a> · ' + (e[3] ? "right" : "missed");
       return '<li><span class="when">' + when + '</span><span>' + what + '</span></li>';
     }).join("");
@@ -696,6 +859,7 @@
     var since = state.log.length ? new Date(state.log[0][0]).toLocaleDateString() : null;
     var h = '<nav class="crumbs"><a href="#home">All units</a><span>›</span><span>Progress report</span></nav>' +
       '<div class="unit-head"><h1>Progress report</h1><p>The last 7 days, compared with the week before. ' + (since ? "Activity tracking started " + since + "." : "Activity will show up here as lessons are completed.") + '</p></div>' +
+      (state.tampered ? '<div class="tamper"><b>Heads up:</b> saved progress was changed outside the course on ' + new Date(state.tampered).toLocaleDateString() + ' (for example by editing the browser storage). Some scores may not be real.</div>' : "") +
       '<div class="tiles">' +
       tile("Lessons completed", wk.lessons, delta(wk.lessons, pv.lessons)) +
       tile("Minutes watched", mins(wk.watch), delta(mins(wk.watch), mins(pv.watch))) +
@@ -767,7 +931,11 @@
 
   // ---------- backup / restore & reset ----------
   var panel = document.getElementById("toolsPanel");
-  function encode() { return btoa(unescape(encodeURIComponent(JSON.stringify({ done: state.done, tests: state.tests, days: state.days, last: state.last, review: state.review, log: state.log, watch: state.watch, ctests: state.ctests, badges: state.badges, name: state.name })))); }
+  function encode() {
+    var o = { done: state.done, tests: state.tests, days: state.days, last: state.last, review: state.review, log: state.log, watch: state.watch, ctests: state.ctests, badges: state.badges, name: state.name, seen: state.seen, locks: state.locks, tampered: state.tampered, _v: 2 };
+    o._sig = sig(o);
+    return btoa(unescape(encodeURIComponent(JSON.stringify(o))));
+  }
   function showBackup() {
     panel.hidden = false;
     panel.innerHTML = '<h2>Move or back up progress</h2><p>Progress is saved only in this browser. To continue on another device, copy this code there and paste it under "Restore".</p>' +
@@ -784,8 +952,8 @@
       var msg = document.getElementById("restoreMsg");
       try {
         var obj = JSON.parse(decodeURIComponent(escape(atob(document.getElementById("backupIn").value.trim()))));
-        if (!obj.done) throw new Error("bad");
-        var theme = state.theme; load(obj); state.theme = theme; save(); route();
+        if (!obj.done || obj._v !== 2 || obj._sig !== sig(obj)) throw new Error("bad");
+        var theme = state.theme, flag = state.tampered; load(obj); state.theme = theme; state.tampered = state.tampered || flag; save(); route();
         var n = countDone(all); msg.textContent = "Restored " + n + " completed lesson" + (n === 1 ? "" : "s") + ".";
       } catch (e) { msg.textContent = "That code didn't work. Copy the whole code and try again."; }
     });
