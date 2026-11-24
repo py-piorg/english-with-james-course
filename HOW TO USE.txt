@@ -31,8 +31,8 @@ FAIR-PLAY RULES (to stop shortcuts)
   dig out (everything runs in her browser), but it's no longer easy.
 
 - Lessons: watch the video, answer the 3 quiz questions, press "Check answers".
-  2 or 3 right marks the lesson complete (green check). Retry any time.
-- Wrong answers show the right answer underneath.
+  2 or 3 right marks the lesson complete (green check). After a pass, the
+  correct answers are shown underneath.
 - Pop quizzes: after she presses Play, the lesson's 3 quiz questions pause the
   video at the moment that topic is taught. Her answers there are filled into
   the quiz below the video, so at the end she just presses "Check answers".
