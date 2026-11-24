@@ -202,6 +202,20 @@
     });
     return out;
   }
+  // After a failed attempt: mark each question as got / missed and say where
+  // it's taught, without showing which option is correct.
+  function markMissed(form, items, lesson) {
+    items.forEach(function (q, qi) {
+      var pick = form.querySelector('input[name="q' + qi + '"]:checked'), ok = pick && isRight(pick.value);
+      var fs = form.querySelector('[data-q="' + qi + '"]'), ex = fs && fs.querySelector(".explain"); if (!ex) return;
+      fs.classList.add(ok ? "got" : "missed");
+      if (pick && !ok) pick.closest(".opt").classList.add("picked-wrong");
+      var src = q.from || lesson, at = q.from ? (q.from.quiz[q.qi] || {}).at : q.at;
+      var where = q.from ? 'From <a href="#lesson-' + src.id + '">' + esc(short(src.title)) + '</a>' + (at ? ", around " + dur(at) : "") + "." : (at ? "This is taught around <b>" + dur(at) + "</b> in the video." : "");
+      ex.hidden = false; ex.className = "explain " + (ok ? "ok" : "no");
+      ex.innerHTML = ok ? "✓ You got this one." : "✗ Missed. " + where;
+    });
+  }
   function stars(right, total) { return '<span class="stars" aria-label="' + right + ' of ' + total + '">' + "★".repeat(right) + "☆".repeat(total - right) + '</span>'; }
 
   // ---------- views ----------
@@ -525,7 +539,9 @@
         // failed: no answers shown, and the video has to be watched again before another try
         logEvent("lesson", l.id, right, 3);
         state.seen[l.id] = ""; save(); updateReviewLink();
-        res.innerHTML = '<div class="result fail">' + stars(right, 3) + '<span>You got ' + right + ' of 3. Watch the video again to unlock another try. The pop quizzes will ask again too.</span></div>';
+        markMissed(form, l.quiz, l);
+        res.innerHTML = '<div class="result fail">' + stars(right, 3) + '<span>You got ' + right + ' of 3. The questions you missed are marked above with where they\'re taught. Watch the video again to unlock another try.</span></div>' +
+          '<div class="learn-tip">Want to see the right answers? Practice your missed questions in <a href="#review">Review mistakes</a>. You answer first, then it shows the correct one.</div>';
         rb.hidden = false; rb.textContent = "Watch again";
       }
       res.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -546,7 +562,8 @@
       '<div class="actions"><a class="btn" href="' + backHref + '">' + backLabel + '</a></div></section>';
   }
   function failHTML(right, size, need, missed) {
-    return '<div class="result fail"><span class="big">' + right + '/' + size + '</span><span>You need ' + need + ' to pass. The answers stay hidden so the next try is fair. You can try again in ' + Math.round(TEST_COOLDOWN / 60000) + ' minutes.</span></div>' +
+    return '<div class="result fail"><span class="big">' + right + '/' + size + '</span><span>You need ' + need + ' to pass. Missed questions are marked above with the lesson they come from. You can try again in ' + Math.round(TEST_COOLDOWN / 60000) + ' minutes.</span></div>' +
+      '<div class="learn-tip">To see the right answers, practice them in <a href="#review">Review mistakes</a>. You answer first, then it shows the correct one.</div>' +
       (missed.length ? '<div class="panel missed"><b>Rewatch these lessons first:</b><ul>' + missed.map(function (l) { return '<li><a href="#lesson-' + l.id + '">' + esc(l.title) + '</a></li>'; }).join("") + '</ul></div>' : "");
   }
 
@@ -586,7 +603,7 @@
         ? '<div class="result pass"><span class="big">' + right + '/' + TEST_SIZE + '</span><span>You passed the Unit ' + u.num + ' test!</span>' +
           (unitComplete(u) ? '<a class="btn" href="#cert-' + u.num + '">Get your certificate</a>' : '<span>Finish the rest of the lessons to earn your Unit ' + u.num + ' certificate.</span>') +
           (n < C.units.length ? '<a class="btn ghost" href="#unit-' + (n + 1) + '">On to Unit ' + (n + 1) + ' →</a>' : "") + '</div>'
-        : failHTML(right, TEST_SIZE, TEST_PASS, missedLessons(form, items));
+        : (markMissed(form, items), failHTML(right, TEST_SIZE, TEST_PASS, missedLessons(form, items)));
       document.getElementById("checkBtn").hidden = true;
       document.getElementById("retryBtn").hidden = right < TEST_PASS;
       res.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -640,7 +657,7 @@
       res.innerHTML = right >= need
         ? '<div class="result pass"><span class="big">' + right + '/' + size + '</span><span>You passed the Chapter ' + c.num + ' test!</span>' +
           (nextCh ? '<a class="btn" href="#unit-' + u.num + '">Next: ' + esc(nextCh.title) + ' →</a>' : '<a class="btn" href="#test-' + u.num + '">Take the Unit ' + u.num + ' test →</a>') + '</div>'
-        : failHTML(right, size, need, missedLessons(form, items));
+        : (markMissed(form, items), failHTML(right, size, need, missedLessons(form, items)));
       document.getElementById("checkBtn").hidden = true;
       document.getElementById("retryBtn").hidden = right < need;
       res.scrollIntoView({ behavior: "smooth", block: "center" });
